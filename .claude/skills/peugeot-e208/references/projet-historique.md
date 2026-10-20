@@ -29,3 +29,19 @@ Vérifier chaque entité sur l'instance avant d'écrire ; ne rien inventer.
    - Regarder d'abord comment la page lit déjà les états HA, puis réutiliser la même méthode.
    - Changer le paramètre anti-cache de l'iframe après modification.
 7. Tester : une ligne réelle arrive dans Notion, les popups s'ouvrent pour les 4 périodes, puis mettre à jour `historique.md` et `entites-et-fichiers.md`.
+
+## Borne rapide de la maison (Type 2, 7,3 kW) — suivi pour le syndic (demandé le 20/10/2026)
+La conso de la borne rapide doit être envoyée régulièrement au syndic : elle a ses propres tableaux, à part de l'historique quotidien.
+La borne est hors ligne au 20/10/2026 ; Dimitri va la remettre en ligne.
+
+Déjà créé dans Notion (sous « Voiture e-208 ») :
+- **Recharges borne rapide (maison)** : database_id `f609102385a241dd995d352ed8de3cc2`. Une ligne par recharge : `Recharge` (titre AAAA-MM-JJ HH:MM), `Début`, `Fin`, `Durée (min)`, `kWh`, `Index début (kWh)`, `Index fin (kWh)`, `Coût`, `Tarif (€/kWh)`, `Source` ; `Mois` est calculé. Graphique « kWh par mois ».
+- **Relevés mensuels borne rapide (syndic)** : database_id `57f217d9763a4863b1c0c038d2570d6e`. Une ligne par mois : `Mois` (titre AAAA-MM), `Période`, `Index début (kWh)`, `Index fin (kWh)`, `kWh`, `Nombre de recharges`, `Coût`, `Tarif (€/kWh)`, `Données complètes`, `Envoyé au syndic`, `Envoyé le`, `Remarque`. Vue « À envoyer au syndic ».
+
+À faire côté HA :
+1. Remettre la borne en ligne, identifier ses entités réelles (compteur d'énergie total en kWh, puissance, état). Le relevé du syndic se base sur l'**index du compteur** (début et fin), pas sur un compteur remis à zéro.
+2. **Surveillance** : alerte Telegram si la borne est `unavailable` plus de 15 min, et quand elle revient ; alerte si une charge démarre alors que la voiture n'est pas branchée/à la maison (à discuter).
+3. **Une ligne par recharge** : début quand la puissance dépasse un seuil (ex. > 500 W) pendant 1 min, fin quand elle retombe sous le seuil pendant 5 min ; envoyer index début/fin, kWh, durée, coût.
+4. **Relevé mensuel** : le 1er du mois à 00:05, créer la ligne du mois écoulé (index au 1er à 00:00 du mois et du mois suivant, kWh, nombre de recharges, coût). Cocher `Données complètes` seulement si la borne n'a pas été hors ligne pendant le mois.
+5. Rattrapage : uniquement à partir des statistiques long terme de HA, si elles existent ; sinon, partir d'un relevé manuel de l'index à la remise en ligne.
+6. Lien Notion (audit du 14/10/2026), point 40 : « Facturation électricité Grégory + conso borne rapide fin de mois : capteur/helper manquants ». À traiter en même temps.
