@@ -22,6 +22,7 @@ Réponses brèves, en français. Vérifier sur l'instance avant d'affirmer : ce 
 
 Entités, fichiers et pages : `references/entites-et-fichiers.md`.
 Historique des sessions et décisions : `references/historique.md`.
+Projet en cours, historique complet km / temps / recharges dans Notion et sur la page : `references/projet-historique.md`.
 
 ## Accès
 - URL et jeton HA : jamais dans ce dépôt (public). Côté Mac, `~/.config/homeassistant/credentials.sh` (`HA_URL_REMOTE`, `HA_TOKEN`). En session cloud, demander à Dimitri d'autoriser le domaine HA dans le réseau de l'environnement et de fournir un jeton.
