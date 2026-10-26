@@ -15,9 +15,11 @@ Dimitri annonce ce qu'il mange. Pour chaque repas : estimer les kcal avec une fo
 ## Où sont les données (Notion, espace de Dimitri)
 - Base **🍽️ Suivi calories**, dans la page SECOND CERVEAU, à côté de « MON POIDS CIBLE ». Source de données : `collection://2b6c1181-b0f6-4e6c-aeec-46b996644406`.
 - Colonnes : `Repas` (titre), `Date`, `Moment` (Petit-déjeuner / Déjeuner / Collation / Dîner / Boisson / extra), `Aliments`, `kcal estimées`, `Fourchette basse`, `Fourchette haute`, `Protéines (g)`, `Sport du jour (kcal)`, `Notes`.
+- Base **📅 Bilan du jour (calories)** (une ligne par jour, source `collection://04504f10-26f3-470f-a6aa-eef590c606e3`), reliée aux repas par la relation `Repas du jour` (côté repas : `Bilan du jour`). Colonnes : `Calories actives montre (kcal)` (à saisir), `Total mangé (kcal)` (somme des repas liés), `Plafond du jour (kcal)` = 2 300 + min(400, 50 % des actives), `Reste à manger (kcal)`, `À brûler en plus (kcal actives)` = 0 si sous le plafond, sinon min(800 − actives, 2 × dépassement), `Statut`. Chaque repas saisi doit être relié à la ligne de son jour (créer la ligne si absente).
+- Les formules ont été créées le 26/10/2026 mais leurs résultats n'ont pas pu être relus via l'outil : vérifier à l'affichage dans Notion.
 - Poids, mensurations, métabolisme basal : page « MON POIDS CIBLE » (objectif en cours, journal des pesées, journal des mensurations).
 - Plan d'entraînement et objectif : page « Programme Hyrox – Sport Reprise » (muscu lun/mer/ven, cardio modéré mar/jeu/sam, repos et pesée le dimanche matin à jeun ; rythme visé environ 0,5 kg par semaine ; déficit modéré, protéines à chaque repas).
-- Il n'existe pas de vue « total par jour » créée par Claude : Dimitri doit grouper le tableau par Date et sommer les kcal. Calculer le total à la main dans les réponses.
+- Calculer aussi le total du jour à la main dans les réponses, pour recouper les formules.
 - Protéines : ne pas remplir sans estimation fiable.
 
 ## Règles de calcul (provisoires, à ajuster après 2 semaines de pesées)
@@ -25,7 +27,8 @@ Dimitri annonce ce qu'il mange. Pour chaque repas : estimer les kcal avec une fo
 2. **Bonus sport** : 50 % des **calories actives** de la montre, plafonné à **400 kcal** par jour. Plafond du jour = 2 300 + bonus. Ne pas compter le métabolisme de repos (déjà dans le plafond).
 3. **Les pas ne comptent pas** : le plafond suppose une activité quotidienne normale. Une journée exceptionnelle (longue randonnée) se traite à part.
 4. Écrire dans `Sport du jour (kcal)` le chiffre brut de la montre, et le plafond ajusté dans `Notes`.
-5. Dîner du soir : si le reste est inférieur à environ 600 kcal, conseiller protéines maigres et légumes, sans féculents ni boissons sucrées.
+5. « À brûler en plus » répond à : combien de calories actives faut-il encore dépenser pour repasser sous le plafond. Le maximum compté est 800 kcal actives (bonus de 400). Au-delà, le dépassement ne se rattrape plus par le sport du jour : le dire et compenser les jours suivants. Le plafond est une cible de déficit, pas le seuil de maintien (inconnu : la dépense réelle n'est pas mesurée).
+6. Dîner du soir : si le reste est inférieur à environ 600 kcal, conseiller protéines maigres et légumes, sans féculents ni boissons sucrées.
 
 ## Montre Huawei
 - Modèle : Huawei Watch GT (Dimitri pense GT 4, non confirmé). Appli : Huawei Santé.
