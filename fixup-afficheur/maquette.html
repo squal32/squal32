@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+<title>FixUp Afficheur</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Concept : un boîtier ESP32 au centre, tout le reste (dossiers, suivi, simulation) pilote le même écran */
+:root{--bg:#f2f4f3;--fg:#1c2321;--mut:#5d6965;--card:#fff;--line:#d7dcd9;--acc:#0d6b5c;--ok:#1f9d55;--warn:#e08a00;--bad:#d1342f;--grey:#6b7773}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#131817;--fg:#e8ecea;--mut:#9aa6a1;--card:#1c2321;--line:#33403c;--acc:#4cc2ad;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#131817;--fg:#e8ecea;--mut:#9aa6a1;--card:#1c2321;--line:#33403c;--acc:#4cc2ad;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font:700 22px/1.2 "IBM Plex Sans",sans-serif;margin:0;text-wrap:balance}
+h2{font:600 12px/1.2 "IBM Plex Sans",sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin:0}
+p{margin:0}.note{font-size:13px;color:var(--mut)}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+/* boîtier */
+.dev{align-self:center;background:#26302d;padding:16px 16px 20px;border-radius:16px;box-shadow:0 8px 24px #0004;max-width:100%}
+.scr{width:320px;height:240px;background:#f4f7f6;color:#17211e;position:relative;overflow:hidden;font-family:"IBM Plex Sans",system-ui,sans-serif;user-select:none;max-width:100%;display:flex;flex-direction:column}
+.scr.off{background:#000}
+.off .wk{flex:1;display:flex;align-items:flex-end;justify-content:center;padding:0 0 10px;color:#222;font-size:10px;cursor:pointer}
+.bar{height:28px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#0d6b5c;color:#fff;font-size:12px;font-weight:600}
+.bar.low{background:#b3261e}
+.bar small{font-weight:500;opacity:.95;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.bat{display:inline-block;width:20px;height:10px;border:1.5px solid #fff;border-radius:2px;position:relative}
+.bat i{position:absolute;left:1px;top:1px;bottom:1px;background:#fff}
+.btn{background:#fff;border:1.5px solid #b9c6c1;border-radius:8px;color:#17211e;font:700 20px "IBM Plex Sans",sans-serif;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.btn:active{background:#d6ece6}
+.grid{display:grid;gap:7px;padding:9px;flex:1;min-height:0}
+.aff{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr)}
+.aff .btn{flex-direction:column;gap:0;font-size:22px;line-height:1.1}.aff small{font-size:10px;font-weight:500;color:#5d6b66;line-height:1.2}
+.strip{flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 10px;color:#fff;height:36px}
+.strip .a{font:700 16px/1.1 "IBM Plex Sans",sans-serif}.strip .a small{display:block;font-size:10px;font-weight:500}
+.strip .sb{background:#fff;color:#17211e;border:0;border-radius:6px;font:700 12px "IBM Plex Sans",sans-serif;padding:7px 10px;cursor:pointer}
+.strip.c{height:22px;font-size:10.5px;font-weight:600}.strip.c .sb{padding:3px 8px;font-size:10.5px}
+.disp{margin:8px 9px 0;height:42px;flex:none;background:#fff;border:1.5px solid #0d6b5c;border-radius:8px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font:600 28px "IBM Plex Mono",monospace;letter-spacing:.14em}
+.disp i{font:500 12px "IBM Plex Sans",sans-serif;color:#5d6b66;letter-spacing:0}
+.pad{grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);gap:6px;padding:8px 9px 9px}
+.pad .btn{font-size:20px}.pad .go{grid-row:span 3;background:#0d6b5c;border-color:#0d6b5c;color:#fff;font-size:16px}.pad .go:active{background:#095044}
+.band{flex:none;padding:6px 10px;display:flex;align-items:center;gap:8px;color:#fff;min-height:48px}
+.band b{font-size:18px;line-height:1.05;font-weight:700;max-width:170px}.band .big{font:700 42px/1 "IBM Plex Sans",sans-serif;margin-left:auto}
+.rows{flex:1;padding:5px 10px 0;font-size:11px;line-height:1.45;color:#2b3834;overflow:hidden}
+.rows span{color:#5d6b66}
+.chips{flex:none;display:flex;align-items:center;gap:4px;padding:0 9px 4px;font-size:11px;color:#5d6b66}
+.chips button{width:26px;height:22px;border-radius:6px;font:700 13px "IBM Plex Sans",sans-serif;background:#fff;border:1.5px solid #b9c6c1;color:#17211e;padding:0;cursor:pointer}
+.chips button.on{background:#17211e;color:#fff;border-color:#17211e}
+.foot{flex:none;display:flex;gap:6px;padding:0 9px 7px}.foot .btn{flex:1;height:27px;font-size:12px;font-weight:600}
+/* synchro */
+.mid{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:0 14px;text-align:center}
+.mid b{font-size:18px}.mid span{font-size:12px;color:#44524d}
+.spin{width:30px;height:30px;border:4px solid #cfe0da;border-top-color:#0d6b5c;border-radius:50%;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.ok{width:34px;height:34px;border-radius:50%;background:#1f9d55;color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center}
+.col{display:flex;flex-direction:column;gap:6px;width:100%}.col .btn{height:32px;font-size:13px;font-weight:600}
+.col .p{background:#0d6b5c;color:#fff;border-color:#0d6b5c}
+/* réseaux */
+.nets{flex:1;overflow:hidden;background:#fff}
+.net{display:flex;align-items:center;gap:7px;height:32px;width:100%;padding:0 10px;border:0;border-bottom:1px solid #d5dedb;background:#fff;font:600 13px "IBM Plex Sans",sans-serif;color:#17211e;cursor:pointer;text-align:left}
+.net em{font-style:normal;margin-left:auto;color:#0d6b5c;font-size:11px;white-space:nowrap}
+.net .sg{color:#0d6b5c;font-size:11px;letter-spacing:-1px;min-width:26px}
+.kb{flex:1;padding:4px 5px 5px;display:flex;flex-direction:column;gap:3px;min-height:0}
+.kr{display:grid;gap:3px;flex:1;min-height:0}
+.kr .btn{font-size:14px;font-weight:600;border-radius:5px;border-width:1px}
+.pw{margin:5px 5px 0;height:30px;flex:none;background:#fff;border:1.5px solid #0d6b5c;border-radius:6px;display:flex;align-items:center;padding:0 9px;font:600 16px "IBM Plex Mono",monospace;letter-spacing:.1em;overflow:hidden}
+.cd{position:absolute;left:0;bottom:0;height:3px;background:#0d6b5c;animation:cd linear forwards}
+@keyframes cd{from{width:100%}to{width:0}}
+/* page */
+.tabs,.seg{display:flex;gap:8px;flex-wrap:wrap}.tabs{justify-content:center}
+.tabs button,.seg button{font:500 13px "IBM Plex Sans",sans-serif;background:var(--card);color:var(--fg);border:1px solid var(--line);padding:7px 11px;border-radius:6px;cursor:pointer}
+.tabs button[aria-pressed=true],.seg button[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+button:focus-visible,.btn:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.sim{display:flex;flex-direction:column;gap:10px}.sim b{font-size:13px;display:block;margin-bottom:4px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.box ul{margin:0;padding-left:18px}.box li{margin:2px 0;font-size:14px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mut);font-weight:600;white-space:nowrap}
+.plan{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:9px 2px;color:var(--fg);font:inherit;cursor:pointer}
+.plan:last-child{border-bottom:0}
+.dot{width:12px;height:12px;border-radius:50%;flex:none}
+.plan .n{font:600 14px "IBM Plex Mono",monospace;min-width:44px}.plan .t{flex:1;min-width:0;font-size:13px}.plan .s{font-size:12px;font-weight:600;white-space:nowrap}
+.tree{font:12.5px/1.65 "IBM Plex Mono",monospace;white-space:pre;overflow-x:auto;margin:0}
+.tree .d{color:var(--acc);font-weight:600}.tree .f{color:var(--fg)}
+.tree .tag{display:inline-block;padding:0 5px;border-radius:4px;font-size:10.5px;color:#fff;margin-left:6px;line-height:1.5}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}.cd{animation:none;width:100%}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>FixUp Afficheur</h1>
+    <p class="note">Maquette v2 : synchro, Wi-Fi, veille, pile. Données inventées. Tape sur l'écran.</p>
+  </header>
+
+  <div class="tabs" role="group" aria-label="Écran">
+    <button data-go="aff">Affaire</button>
+    <button data-go="num">N° plan</button>
+    <button data-go="res">Résultat</button>
+    <button data-go="sync">Synchro</button>
+    <button data-go="wifi">Wi-Fi</button>
+    <button data-go="sleep">Veille</button>
+  </div>
+
+  <div class="dev"><div class="scr" id="scr"></div></div>
+  <p class="note" style="text-align:center">Écran 2,8" · 320×240 · taille réelle</p>
+
+  <section class="box sim">
+    <h2>Simulation</h2>
+    <div><b>Âge de la dernière synchro</b><div class="seg" id="s-age">
+      <button data-sim="age=2">2 h</button><button data-sim="age=30">30 h</button><button data-sim="age=96">4 jours</button><button data-sim="age=unk">Piles changées</button></div></div>
+    <div><b>Piles</b><div class="seg" id="s-bat">
+      <button data-sim="bat=85">85 %</button><button data-sim="bat=15">15 %</button></div></div>
+    <div><b>Wi-Fi du chantier à portée</b><div class="seg" id="s-wifi">
+      <button data-sim="wifi=1">Oui</button><button data-sim="wifi=0">Non</button></div></div>
+    <div><b>Veille automatique (20 s ici, ~30 s réel)</b><div class="seg" id="s-auto">
+      <button data-sim="auto=1">Oui</button><button data-sim="auto=0">Non</button></div></div>
+  </section>
+
+  <section class="box">
+    <h2>Plans de l'affaire <span id="afflab">L17</span></h2>
+    <p class="note">Touche un plan pour le voir sur l'écran.</p>
+    <div id="plans"></div>
+  </section>
+
+  <section class="box">
+    <h2>À tester sur la carte</h2>
+    <ul>
+      <li>Broche du réveil tactile (T_IRQ, probablement GPIO36)</li>
+      <li>Broche du rétroéclairage (GPIO21 ou 27 selon modèle)</li>
+      <li>Courant de veille réel, écran noir, avec et sans tactile actif</li>
+      <li>Décision : réveil tactile ou bouton physique ?</li>
+      <li>Taille de la flash (4 Mo annoncés)</li>
+      <li>Heure après changement de piles : perdue, à resynchroniser</li>
+    </ul>
+  </section>
+
+  <section class="box">
+    <h2>Dossiers du serveur (inventés)</h2>
+    <p class="note">Le dernier fichier est un indice (A, B, C…) ou des initiales (travail).</p>
+    <pre class="tree" id="tree"></pre>
+  </section>
+
+  <section class="box">
+    <h2>Tableau de suivi (inventé)</h2>
+    <p class="note">Suivi_plans.xlsx. La case « diffusé » donne l'indice valable au chantier.</p>
+    <div class="scroll"><table id="suivi"></table></div>
+  </section>
+
+  <section class="box">
+    <h2>Règles de l'écran</h2>
+    <div class="scroll"><table>
+      <tr><th>Cas</th><th>Écran</th></tr>
+      <tr><td>Dernier indice = indice diffusé</td><td style="color:var(--ok);font-weight:600">À JOUR</td></tr>
+      <tr><td>Indice plus récent, pas encore diffusé</td><td style="color:var(--warn);font-weight:600">NOUVEL INDICE</td></tr>
+      <tr><td>Jamais diffusé</td><td style="color:var(--warn);font-weight:600">NON DIFFUSÉ</td></tr>
+      <tr><td>Seulement des initiales (travail)</td><td style="color:var(--warn);font-weight:600">EN COURS</td></tr>
+      <tr><td>Indice du papier ≠ indice diffusé</td><td style="color:var(--bad);font-weight:600">PÉRIMÉ</td></tr>
+      <tr><td>Aucun fichier</td><td style="color:var(--grey);font-weight:600">INTROUVABLE</td></tr>
+      <tr><td>Synchro &gt; 24 h / &gt; 3 jours / heure inconnue</td><td style="font-weight:600"><span style="color:var(--warn)">orange</span> / <span style="color:var(--bad)">rouge</span> / <span style="color:var(--warn)">orange</span></td></tr>
+    </table></div>
+  </section>
+</div>
+
+<script>
+(function(){
+var AFF=[["L17","Ligne 17 · Gare 2"],["L15","Ligne 15 · Gare 4"],["L16","Ligne 16 · Dépôt"],["H01","Hôpital · Bât. B"],["B22","Bureaux · Tour 22"],["E05","École · Gymnase"]];
+var TYPE={PCF:"Implantation PC Force",ECL:"Implantation Éclairage",RES:"Implantation Réseau VDI"};
+var FOLD={PCF:"01_Implantation/PC_Force",ECL:"01_Implantation/Eclairage",RES:"01_Implantation/Reseau"};
+var ZONE={R1:"R+1",R2:"R+2",RDC:"RDC",R3:"R+3"};
+var FILES=[
+["L17_2505_PCF_R1_A.pdf","02/09"],["L17_2505_PCF_R1_B.pdf","23/09"],["L17_2505_PCF_R1_C.pdf","14/10"],
+["L17_2506_ECL_R2_B.pdf","18/09"],["L17_2506_ECL_R2_C.pdf","30/09"],["L17_2506_ECL_R2_D.pdf","22/10"],
+["L17_2507_RES_R1_DP.pdf","25/10"],
+["L17_2508_PCF_R2_A.pdf","10/10"],["L17_2508_PCF_R2_B.pdf","21/10"],
+["L17_2509_ECL_RDC_A.pdf","06/10"],
+["L15_3101_ECL_RDC_A.pdf","05/10"],["L15_3101_ECL_RDC_B.pdf","19/10"],
+["L15_3102_PCF_RDC_A.pdf","12/10"],
+["H01_1201_RES_R3_C.pdf","08/10"]
+];
+var SUIVI={
+"L17_2505":["C","15/10","BT-L17-041"],"L17_2506":["C","01/10","BT-L17-038"],"L17_2509":["A","08/10","BT-L17-040"],
+"L15_3101":["B","20/10","BT-L15-017"],"L15_3102":["A","13/10","BT-L15-015"],"H01_1201":["C","09/10","BT-H01-009"]
+};
+var NETS=[{n:"CHANTIER-L17",s:3,saved:1},{n:"Tel-Marc (partage)",s:2,saved:0},{n:"ETT-Bureau",s:2,saved:0},{n:"Livebox-4F2A",s:1,saved:0}];
+var NOW=new Date(2026,9,26,14,5);
+
+function parse(f){var m=f.match(/^(\w+?)_(\d+)_([A-Z]+)_(\w+)_([A-Z]+)\.pdf$/);return{aff:m[1],num:m[2],type:m[3],zone:m[4],idx:m[5],final:m[5].length===1}}
+var P=FILES.map(function(x){var p=parse(x[0]);p.file=x[0];p.date=x[1];return p});
+var NPLANS=Object.keys(P.reduce(function(o,p){o[p.aff+p.num]=1;return o},{})).length;
+function plansOf(a){var o={};P.filter(function(p){return p.aff===a}).forEach(function(p){(o[p.num]=o[p.num]||[]).push(p)});return o}
+function info(a,n){
+ var L=(plansOf(a)[n])||null;if(!L)return{k:"none"};
+ var fin=L.filter(function(p){return p.final}).sort(function(x,y){return x.idx<y.idx?-1:1});
+ var t=L[0],sv=SUIVI[a+"_"+n];
+ var o={t:TYPE[t.type]+" "+ZONE[t.zone],last:fin.length?fin[fin.length-1]:null,dif:sv?sv[0]:null,dd:sv?sv[1]:"",bt:sv?sv[2]:""};
+ if(!fin.length)o.k="draft",o.d=L[L.length-1];
+ else if(!sv)o.k="nodif";
+ else if(o.last.idx===o.dif)o.k="ok";
+ else o.k="new";
+ return o;
+}
+var COL={ok:["#1f9d55","À JOUR"],"new":["#e08a00","NOUVEL INDICE"],nodif:["#e08a00","NON DIFFUSÉ"],draft:["#e08a00","EN COURS"],bad:["#d1342f","PÉRIMÉ"],good:["#1f9d55","PLAN VALIDE"],none:["#6b7773","INTROUVABLE"]};
+var G="#1f9d55",O="#e08a00",R="#d1342f";
+var SLEEP_S=20;
+var st={v:"aff",a:"L17",n:"2506",paper:"",age:2,unk:false,bat:85,wifi:1,auto:1,ph:"",hot:false,prev:"aff",net:"",pw:"",kb:"lower"};
+var tok=0,sleepT=0;
+var el=document.getElementById("scr");
+
+function p2(x){return(x<10?"0":"")+x}
+function stamp(){if(st.unk)return"24/10 08:12";var d=new Date(NOW.getTime()-st.age*36e5);return p2(d.getDate())+"/"+p2(d.getMonth()+1)+" "+p2(d.getHours())+":"+p2(d.getMinutes())}
+function syncInfo(){
+ if(st.unk)return{c:O,a:stamp(),b:"heure inconnue · à synchroniser"};
+ var h=st.age,rel=h<1?"à l'instant":h<24?"il y a "+Math.round(h)+" h":"il y a "+Math.floor(h/24)+" j";
+ return{c:h<=24?G:h<=72?O:R,a:stamp(),b:rel};
+}
+function bar(t,wifi){
+ var low=st.bat<=15;
+ return'<div class="bar'+(low?' low':'')+'"><span>'+(low?'PILES FAIBLES':t)+'</span><small>'+(wifi?'Wi-Fi ON':'Wi-Fi off')+' · '+st.bat+'%<span class="bat"><i style="width:'+Math.round(st.bat*.14)+'px"></i></span></small></div>';
+}
+function strip(c){
+ var s=syncInfo();
+ return c?'<div class="strip c" style="background:'+s.c+'"><span>Synchro '+s.a+' · '+s.b+'</span><button class="sb" data-sync="1">↻ Synchro</button></div>'
+        :'<div class="strip" style="background:'+s.c+'"><div class="a"><small>DERNIÈRE SYNCHRO</small>'+s.a+' · '+s.b+'</div><button class="sb" data-sync="1">↻ Synchro</button></div>';
+}
+function keyRows(){
+ var L={lower:["qwertyuiop","asdfghjkl","zxcvbnm"],upper:["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"],num:["1234567890","-_.@#!?&%$","+=/:;*~"]}[st.kb];
+ function k(c){return'<button class="btn" data-kk="'+c+'">'+c+'</button>'}
+ var r1='<div class="kr" style="grid-template-columns:repeat(10,1fr)">'+L[0].split("").map(k).join("")+'</div>';
+ var r2='<div class="kr" style="grid-template-columns:repeat('+L[1].length+',1fr);padding:0 '+(L[1].length<10?14:0)+'px">'+L[1].split("").map(k).join("")+'</div>';
+ var r3='<div class="kr" style="grid-template-columns:1.5fr repeat('+L[2].length+',1fr) 1.5fr"><button class="btn" data-kk="SHIFT">'+(st.kb==="num"?'':'⇧')+'</button>'+L[2].split("").map(k).join("")+'<button class="btn" data-kk="BS">⌫</button></div>';
+ var r4='<div class="kr" style="grid-template-columns:1.5fr 4fr 1.8fr"><button class="btn" data-kk="MODE">'+(st.kb==="num"?'abc':'123')+'</button><button class="btn" data-kk="SP">espace</button><button class="btn" data-kk="GO" style="background:#0d6b5c;color:#fff;border-color:#0d6b5c">OK</button></div>';
+ return r1+r2+r3+r4;
+}
+function arm(){
+ clearTimeout(sleepT);
+ if(st.auto&&st.v!=="sleep")sleepT=setTimeout(function(){st.v="sleep";tok++;render()},SLEEP_S*1000);
+}
+function render(){
+ var h="",cls="scr";
+ if(st.v==="sleep"){cls="scr off";h='<div class="wk" data-wake="1">écran éteint · touche pour réveiller</div>'}
+ else if(st.v==="aff"){
+  h=bar("Choisir l'affaire",false)+strip(false)+'<div class="grid aff">'+AFF.map(function(a){var c=Object.keys(plansOf(a[0])).length;return'<button class="btn" data-a="'+a[0]+'">'+a[0]+'<small>'+a[1].split(" · ")[1]+'</small><small>'+c+' plan'+(c>1?"s":"")+'</small></button>'}).join("")+'</div>';
+ }else if(st.v==="num"){
+  h=bar("Affaire "+st.a,false)+'<div class="disp"><i>Plan n°</i><span>'+(st.n||"····")+'</span></div><div class="grid pad">'+
+   "123456789".split("").map(function(k){return'<button class="btn" data-k="'+k+'">'+k+'</button>'}).join("")+
+   '<button class="btn" data-k="x">⌫</button><button class="btn" data-k="0">0</button><button class="btn" data-k="c">C</button><button class="btn go" data-k="ok">VOIR</button></div>';
+ }else if(st.v==="res"){
+  var r=info(st.a,st.n),k=r.k,big="?",rows="",chips="";
+  if(k==="none"){rows='Aucun fichier <b>'+(st.n||"?")+'</b> dans l\'affaire '+st.a+'.<br>Vérifie le numéro.'}
+  else if(k==="draft"){big="–";rows='<span>Plan</span> '+r.t+'<br>Fichier de travail <b>'+r.d.idx+'</b> du '+r.d.date+'.<br>Aucun indice final. Ne pas utiliser.'}
+  else{
+   big=r.dif||"–";
+   rows='<span>Plan</span> '+r.t+'<br><span>Dernier indice serveur</span> <b>'+r.last.idx+'</b> ('+r.last.date+')<br><span>Diffusé chantier</span> '+(r.dif?'<b>'+r.dif+'</b> le '+r.dd+' · '+r.bt:'<b>jamais</b>');
+   if(k==="new")rows+='<br>Le <b>'+r.dif+'</b> reste valable.';
+   var ls="ABCDEF".split("").slice(0,Math.max(3,r.last.idx.charCodeAt(0)-63));
+   chips='<div class="chips">Mon papier :'+ls.map(function(l){return'<button data-p="'+l+'"'+(st.paper===l?' class="on"':"")+'>'+l+'</button>'}).join("")+'</div>';
+   if(st.paper){if(r.dif&&st.paper===r.dif)k="good";else{k="bad";rows='<span>Plan</span> '+r.t+'<br>Ton papier est en <b>'+st.paper+'</b>.<br>Indice valable : <b>'+(r.dif||"aucun")+'</b>. Remplace-le.'}}
+  }
+  var c=COL[k];
+  h=bar("Affaire "+st.a+" · plan "+(st.n||"?"),false)+'<div class="band" style="background:'+c[0]+'"><b>'+c[1]+'</b><span class="big">'+big+'</span></div><div class="rows">'+rows+'</div>'+chips+strip(true)+
+   '<div class="foot"><button class="btn" data-go="num">← Autre plan</button><button class="btn" data-go="aff">Affaires</button></div>';
+ }else if(st.v==="sync"){
+  var body;
+  if(st.ph==="search")body='<div class="spin"></div><b>Wi-Fi activé</b><span>'+(st.hot?'Connexion au partage du téléphone…':'Recherche de CHANTIER-L17…')+'</span>';
+  else if(st.ph==="get")body='<div class="spin"></div><b>Synchronisation</b><span>Téléchargement des plans…</span>';
+  else if(st.ph==="ok")body='<div class="ok">✓</div><b>Synchronisé</b><span>'+stamp()+' · '+NPLANS+' plans à jour<br>Wi-Fi coupé. Données gardées en mémoire.</span>';
+  else body='<b>Aucun réseau connu</b><span>Active le partage de connexion sur le téléphone, puis touche le bouton.</span><div class="col"><button class="btn p" data-hot="1">Partage de connexion</button><button class="btn" data-go="wifi">Choisir un réseau Wi-Fi</button><button class="btn" data-back="1">Annuler</button></div>';
+  h=bar("Synchronisation",st.ph==="search"||st.ph==="get")+'<div class="mid">'+body+'</div>';
+ }else if(st.v==="wifi"){
+  h=bar("Réseaux Wi-Fi",true)+'<div class="nets">'+NETS.map(function(n){return'<button class="net" data-net="'+n.n+'"><span>'+n.n+'</span><em>'+(n.saved?'★ mémorisé · ':'')+'<span class="sg">'+"▂▄▆".slice(0,n.s)+'</span></em></button>'}).join("")+'</div><div class="foot" style="padding-top:6px"><button class="btn" data-back="1">← Retour</button><button class="btn" data-go="wifi">↻ Rechercher</button></div>';
+ }else{
+  h=bar(st.net,true)+'<div class="pw">'+(st.pw?"•".repeat(Math.max(0,st.pw.length-1))+st.pw.slice(-1):'<span style="color:#9bb0aa;font-weight:400;font-size:12px;letter-spacing:0">Mot de passe</span>')+'</div><div class="kb">'+keyRows()+'</div>';
+ }
+ el.className=cls;el.innerHTML=h;
+ if(st.auto&&st.v!=="sleep")el.insertAdjacentHTML("beforeend",'<div class="cd" style="animation-duration:'+SLEEP_S+'s"></div>');
+ arm();
+ var map={aff:"aff",num:"num",res:"res",sync:"sync",wifi:"wifi",pw:"wifi",sleep:"sleep"};
+ document.querySelectorAll(".tabs button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.go===map[st.v]?"true":"false")});
+ [["age",st.unk?"unk":st.age],["bat",st.bat],["wifi",st.wifi],["auto",st.auto]].forEach(function(x){
+  document.querySelectorAll('[data-sim^="'+x[0]+'="]').forEach(function(b){b.setAttribute("aria-pressed",b.dataset.sim===x[0]+"="+x[1]?"true":"false")})});
+ document.getElementById("afflab").textContent=st.a;
+ renderPlans();
+}
+function renderPlans(){
+ var o=plansOf(st.a),ks=Object.keys(o).sort();
+ var C={ok:"var(--ok)","new":"var(--warn)",nodif:"var(--warn)",draft:"var(--warn)"};
+ document.getElementById("plans").innerHTML=ks.length?ks.map(function(n){var r=info(st.a,n);return'<button class="plan" data-pn="'+n+'"><span class="dot" style="background:'+C[r.k]+'"></span><span class="n">'+n+'</span><span class="t">'+r.t+'</span><span class="s" style="color:'+C[r.k]+'">'+COL[r.k][1]+'</span></button>'}).join(""):'<p class="note">Aucun plan dans cette affaire.</p>';
+}
+function alive(my){return my===tok&&st.v==="sync"}
+function startSync(force){
+ tok++;var my=tok;
+ if(!/^(sync|wifi|pw|sleep)$/.test(st.v))st.prev=st.v;
+ st.v="sync";st.ph="search";st.hot=force;render();
+ setTimeout(function(){if(!alive(my))return;
+  if(force||st.wifi){st.ph="get";render();
+   setTimeout(function(){if(!alive(my))return;st.ph="ok";st.age=0;st.unk=false;render();
+    setTimeout(function(){if(!alive(my))return;st.v=st.prev||"aff";render()},1800)},1100)}
+  else{st.ph="fail";render()}},1300);
+}
+function tree(){
+ var s="",byF={};
+ ["PCF","ECL","RES"].forEach(function(t){byF[t]=P.filter(function(p){return p.aff==="L17"&&p.type===t})});
+ s+='<span class="d">SERVEUR/L17/</span>\n├─ <span class="d">01_Implantation/</span>\n';
+ ["PCF","ECL","RES"].forEach(function(t,i){
+  s+='│   '+(i<2?'├─':'└─')+' <span class="d">'+FOLD[t].split("/")[1]+'/</span>\n';
+  byF[t].forEach(function(p){var tg=p.final?'<span class="tag" style="background:var(--grey)">indice '+p.idx+'</span>':'<span class="tag" style="background:var(--warn)">travail</span>';
+   s+='│   '+(i<2?'│  ':'   ')+'   <span class="f">'+p.file+'</span>'+tg+'\n'});
+ });
+ s+='├─ <span class="d">02_Notes_calcul/</span>\n│   ├─ <span class="d">Dialux/</span> <span class="f">L17_Dialux_Gare2_R2.pdf</span>\n│   └─ <span class="d">Caneco/</span> <span class="f">L17_Caneco_TGBT_C.pdf</span>\n';
+ s+='├─ <span class="d">03_Bordereaux/</span>\n│   ├─ <span class="f">BT-L17-038_01-10.pdf</span>\n│   └─ <span class="f">BT-L17-041_15-10.pdf</span>\n';
+ s+='└─ <span class="d">04_Suivi/</span>\n    └─ <span class="f">Suivi_plans.xlsx</span>';
+ document.getElementById("tree").innerHTML=s;
+}
+function suivi(){
+ var h='<tr><th>Plan</th><th>Dernier</th><th>Diffusé</th><th>Date</th><th>Bordereau</th></tr>';
+ ["2505","2506","2507","2508","2509"].forEach(function(n){var r=info("L17",n),sv=SUIVI["L17_"+n];
+  h+='<tr><td class="mono">'+n+'</td><td>'+(r.last?r.last.idx:"travail")+'</td><td>'+(sv?sv[0]:"–")+'</td><td>'+(sv?sv[1]:"–")+'</td><td class="mono">'+(sv?sv[2]:"–")+'</td></tr>'});
+ document.getElementById("suivi").innerHTML=h;
+}
+document.addEventListener("click",function(e){
+ var b=e.target.closest("[data-go],[data-a],[data-k],[data-p],[data-pn],[data-sync],[data-hot],[data-back],[data-net],[data-kk],[data-sim],[data-wake]");if(!b)return;
+ var d=b.dataset;
+ if(d.sim){var kv=d.sim.split("=");
+  if(kv[0]==="age"){if(kv[1]==="unk"){st.unk=true}else{st.unk=false;st.age=+kv[1]}}else st[kv[0]]=+kv[1];
+  render();return}
+ if(d.wake){st.v="aff";render();return}
+ if(d.sync||d.hot){startSync(!!d.hot);return}
+ if(d.back){tok++;st.v=st.prev||"aff";render();return}
+ if(d.go){tok++;
+  if(d.go==="sync"){startSync(false);return}
+  if(d.go==="sleep"){st.v="sleep";render();return}
+  if(d.go==="wifi"&&!/^(sync|wifi|pw)$/.test(st.v))st.prev=st.v;
+  if(d.go==="res"&&!st.n)st.n="2506";
+  if(d.go==="num")st.paper="";
+  st.v=d.go;render();return}
+ if(d.net){var nn=NETS.filter(function(n){return n.n===d.net})[0];
+  if(nn.saved){startSync(true)}else{st.net=nn.n;st.pw="";st.kb="lower";st.v="pw";render()}return}
+ if(d.kk){var c=d.kk;
+  if(c==="SHIFT"){if(st.kb!=="num")st.kb=st.kb==="lower"?"upper":"lower"}
+  else if(c==="MODE")st.kb=st.kb==="num"?"lower":"num";
+  else if(c==="BS")st.pw=st.pw.slice(0,-1);
+  else if(c==="SP"){if(st.pw.length<32)st.pw+=" "}
+  else if(c==="GO"){if(st.pw){NETS.forEach(function(n){if(n.n===st.net)n.saved=1});startSync(true);return}}
+  else{if(st.pw.length<32)st.pw+=c;if(st.kb==="upper")st.kb="lower"}
+  render();return}
+ if(d.a){st.a=d.a;st.n="";st.paper="";st.v="num"}
+ else if(d.p){st.paper=st.paper===d.p?"":d.p}
+ else if(d.pn){st.n=d.pn;st.paper="";st.v="res";document.getElementById("scr").scrollIntoView({behavior:"smooth",block:"center"})}
+ else if(d.k){var k=d.k;
+  if(k==="x")st.n=st.n.slice(0,-1);else if(k==="c")st.n="";
+  else if(k==="ok"){if(st.n){st.v="res";st.paper=""}}
+  else if(st.n.length<4)st.n+=k;}
+ render();
+});
+tree();suivi();render();
+})();
+</script>
+
+</body></html>
