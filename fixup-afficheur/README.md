@@ -4,6 +4,7 @@ Petit écran tactile ESP32 intégré au FixUp (support mural de plans A0 à A6).
 Il indique si le plan papier affiché est bien le dernier indice diffusé au chantier.
 
 ## Fichiers
+- `regles-indices.md` : règles d'indices et nom de fichier (à lire en premier).
 - `maquette.html` : maquette cliquable (ouvrir dans un navigateur, fonctionne seule).
   Données inventées. Panneau « Simulation » : âge de la synchro, pile, Wi-Fi, veille.
 
