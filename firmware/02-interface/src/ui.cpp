@@ -159,23 +159,6 @@ static void blinkStart(lv_timer_t*) {
   lv_timer_set_repeat_count(t, 1);
 }
 
-static void openSettings();
-// Appui long mesuré ici plutôt que par LVGL : un léger tremblement du tactile ne l'annule pas.
-static void onBuddyPress(lv_event_t* e) {
-  static uint32_t start = 0;
-  static bool fired = false;
-  lv_event_code_t c = lv_event_get_code(e);
-  if (c == LV_EVENT_PRESSED) {
-    start = millis();
-    fired = false;
-    Serial.println("compagnon : appui");
-  } else if (c == LV_EVENT_PRESSING && !fired && millis() - start > 600) {
-    fired = true;
-    Serial.println("compagnon : appui long -> reglages");
-    openSettings();
-  }
-}
-
 static void buddyCreate(lv_obj_t* parent, int x, int y) {
   buddyFace = panel(parent, x, y, 48, 34, lv_color_hex(0x0E1A2B), lv_color_hex(0x1E3550), 14);
   lv_obj_set_style_border_width(buddyFace, 2, 0);
@@ -189,13 +172,8 @@ static void buddyCreate(lv_obj_t* parent, int x, int y) {
     lv_obj_set_style_radius(e, 5, 0);
     lv_obj_set_style_pad_all(e, 0, 0);
     noScroll(e);
-    lv_obj_clear_flag(e, LV_OBJ_FLAG_CLICKABLE);
     (i == 0 ? eyeL : eyeR) = e;
   }
-  lv_obj_set_style_border_color(buddyFace, C_CYAN, LV_STATE_PRESSED);
-  lv_obj_set_ext_click_area(buddyFace, 12);  // zone tactile plus large que le dessin
-  lv_obj_add_event_cb(buddyFace, onBuddyPress, LV_EVENT_PRESSED, nullptr);
-  lv_obj_add_event_cb(buddyFace, onBuddyPress, LV_EVENT_PRESSING, nullptr);
   buddyApply();
   lv_timer_create(blinkStart, 4200, nullptr);
 }
@@ -230,7 +208,7 @@ static void onTab(lv_event_t* e) {
 
 // ---------- accueil ----------
 
-static lv_obj_t *homeTime, *homeDate, *homeSrc, *homeWifi, *homePunch, *punchLast;
+static lv_obj_t *homeTime, *homeDate, *homeSrc, *homeWifi, *homeOptSub, *homePunch, *punchLast;
 
 // ---------- heure : NTP par Wi-Fi, sinon réglage manuel ----------
 
@@ -275,9 +253,13 @@ static void clockTick(lv_timer_t*) {
     if (n.length() > 16) n = n.substring(0, 15) + ".";
     lv_label_set_text(homeWifi, n.c_str());
     lv_obj_set_style_text_color(homeWifi, C_CYAN, 0);
+    lv_label_set_text(homeOptSub, "Wi-Fi connecté");
+    lv_obj_set_style_text_color(homeOptSub, C_CYAN, 0);
   } else {
     lv_label_set_text(homeWifi, "Choisir le Wi-Fi");
     lv_obj_set_style_text_color(homeWifi, C_AMBER, 0);
+    lv_label_set_text(homeOptSub, "Wi-Fi à régler");
+    lv_obj_set_style_text_color(homeOptSub, C_AMBER, 0);
   }
 }
 
@@ -541,6 +523,7 @@ static void buildSettings() {
 }
 
 static void onPunchCard(lv_event_t*) { showPage(P_PUNCH); }
+static void onOptionsCard(lv_event_t*) { openSettings(); }
 
 static lv_obj_t* card(lv_obj_t* parent, int x, int w, const char* title, const char* value, const lv_font_t* vfont,
                       const char* sub, bool fake, lv_obj_t** valueOut) {
@@ -576,7 +559,11 @@ static void buildHome() {
   lv_obj_t* c1 = card(p, 12, 146, "POINTAGE", "08:03", &font_num_20, "Arrivée", false, &homePunch);
   lv_obj_add_flag(c1, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(c1, onPunchCard, LV_EVENT_CLICKED, nullptr);
-  card(p, 162, 146, "PAS", "4 210", &font_num_20, "fictif", true, nullptr);
+  lv_obj_t* c2 = card(p, 162, 146, "OPTIONS", "Réglages", &font_ui_18, "", false, nullptr);
+  homeOptSub = lv_obj_get_child(c2, 2);
+  lv_obj_add_flag(c2, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_set_style_border_color(c2, C_CYAN, LV_STATE_PRESSED);
+  lv_obj_add_event_cb(c2, onOptionsCard, LV_EVENT_CLICKED, nullptr);
   lv_timer_create(clockTick, 1000, nullptr);
   clockTick(nullptr);
 }

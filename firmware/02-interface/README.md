@@ -17,7 +17,7 @@ Pas encore de Wi-Fi, de sauvegarde des pointages, ni d'alerte alarme : ce sont l
 
 ## Heure réelle
 L'heure vient d'Internet (NTP) dès que la carte est connectée au Wi-Fi, heure de Paris.
-1. **Depuis l'écran** : **appui long sur le compagnon** (barre du bas) → Réglages → Wi-Fi
+1. **Depuis l'écran** : carte **Options** de l'accueil → Wi-Fi
    (ou le nom du Wi-Fi en haut à droite de l'accueil), choisis le réseau (box ou partage de connexion du téléphone), tape le mot de passe sur le clavier.
    Trois réseaux au plus sont gardés en mémoire ; la carte passe de l'un à l'autre toute seule.
    Seuls les réseaux 2,4 GHz sont visibles.
@@ -26,7 +26,7 @@ L'heure vient d'Internet (NTP) dès que la carte est connectée au Wi-Fi, heure 
    La carte n'a pas de pile : après une coupure de courant, l'heure manuelle est perdue.
 
 ## Réglages
-Appui long (environ une demi-seconde) sur le compagnon au milieu de la barre du bas :
+Carte **Options** de l'accueil (à la place du nombre de pas) :
 Wi-Fi, heure manuelle, et un emplacement réservé pour le prochain projet.
 
 ## Démarrage
