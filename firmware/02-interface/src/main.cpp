@@ -22,17 +22,24 @@ static void flushCb(lv_disp_drv_t* drv, const lv_area_t* a, lv_color_t* c) {
 
 static void touchCb(lv_indev_drv_t*, lv_indev_data_t* data) {
   static bool wasDown = false;
+  static int misses = 0;
+  static int16_t lx = 0, ly = 0;
   int16_t x, y;
   if (touchRead(x, y)) {
-    if (!wasDown) Serial.printf("appui %d,%d\n", x, y);
+    if (!wasDown) {
+      int rx, ry;
+      touchLastRaw(rx, ry);
+      Serial.printf("appui %d,%d (brut %d,%d)\n", x, y, rx, ry);
+    }
     wasDown = true;
-    data->state = LV_INDEV_STATE_PRESSED;
-    data->point.x = x;
-    data->point.y = y;
-  } else {
+    misses = 0;
+    lx = x; ly = y;
+  } else if (wasDown && ++misses >= 4) {  // le relâchement n'est validé qu'après 4 lectures vides
     wasDown = false;
-    data->state = LV_INDEV_STATE_RELEASED;
   }
+  data->state = wasDown ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+  data->point.x = lx;
+  data->point.y = ly;
 }
 
 void setup() {

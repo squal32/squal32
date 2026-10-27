@@ -3,7 +3,7 @@
 
 // Tactile XPT2046 sur ses propres broches (vérifié par le test 00-identification).
 constexpr int T_CLK = 25, T_MOSI = 32, T_MISO = 39, T_CS = 33;
-constexpr int PRESS_MIN = 400;
+constexpr int PRESS_MIN = 250;
 constexpr int CAL_A_X = 20, CAL_A_Y = 20, CAL_B_X = 300, CAL_B_Y = 220;
 
 struct Cal { bool swap; int ax0, ax1, ay0, ay1; bool ok; } cal = {true, 0, 0, 0, 0, false};
@@ -25,14 +25,31 @@ static uint16_t xpt(uint8_t cmd) {
   return (v >> 3) & 0x0FFF;
 }
 
+static int lastRawX = 0, lastRawY = 0;
+
+static int median5(int* v) {
+  for (int i = 1; i < 5; i++) {
+    int k = v[i], j = i - 1;
+    while (j >= 0 && v[j] > k) { v[j + 1] = v[j]; j--; }
+    v[j + 1] = k;
+  }
+  return v[2];
+}
+
 static bool rawRead(int& rx, int& ry) {
   int z = (int)xpt(0xB0) + 4095 - (int)xpt(0xC0);
   if (z < PRESS_MIN) return false;
-  long sx = 0, sy = 0;
-  for (int i = 0; i < 3; i++) { sx += xpt(0xD0); sy += xpt(0x90); }
-  rx = sx / 3; ry = sy / 3;
+  xpt(0xD0); xpt(0x90);  // lectures à blanc : laissent l'ampli se stabiliser
+  int xs[5], ys[5];
+  for (int i = 0; i < 5; i++) { xs[i] = xpt(0xD0); ys[i] = xpt(0x90); }
+  z = (int)xpt(0xB0) + 4095 - (int)xpt(0xC0);
+  if (z < PRESS_MIN) return false;  // le doigt se lève : mesure douteuse
+  rx = median5(xs); ry = median5(ys);
+  lastRawX = rx; lastRawY = ry;
   return true;
 }
+
+void touchLastRaw(int& rx, int& ry) { rx = lastRawX; ry = lastRawY; }
 
 void touchBegin() {
   pinMode(T_CS, OUTPUT); digitalWrite(T_CS, HIGH);
