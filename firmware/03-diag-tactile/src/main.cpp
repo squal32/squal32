@@ -84,19 +84,19 @@ void pressureTest() {
 }
 
 // ---- étape 2 : 9 cibles ----
-const int TX[9] = {30, 160, 290, 30, 160, 290, 30, 160, 290};
-const int TY[9] = {30, 30, 30, 120, 120, 120, 210, 210, 210};
-int RX[9], RY[9], RZ[9];
+const int TGT_X[9] = {30, 160, 290, 30, 160, 290, 30, 160, 290};
+const int TGT_Y[9] = {30, 30, 30, 120, 120, 120, 210, 210, 210};
+int RAW_X[9], RAW_Y[9], RAW_Z[9];
 
 void target(int i) {
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   char b[48];
   snprintf(b, sizeof b, "2/3  Touche le centre de la cible %d / 9", i + 1);
-  tft.drawCentreString(b, 160, TY[i] == 120 ? 160 : 112, 2);
-  tft.drawCircle(TX[i], TY[i], 10, TFT_CYAN);
-  tft.drawFastHLine(TX[i] - 14, TY[i], 29, TFT_CYAN);
-  tft.drawFastVLine(TX[i], TY[i] - 14, 29, TFT_CYAN);
+  tft.drawCentreString(b, 160, TGT_Y[i] == 120 ? 160 : 112, 2);
+  tft.drawCircle(TGT_X[i], TGT_Y[i], 10, TFT_CYAN);
+  tft.drawFastHLine(TGT_X[i] - 14, TGT_Y[i], 29, TFT_CYAN);
+  tft.drawFastVLine(TGT_X[i], TGT_Y[i] - 14, 29, TFT_CYAN);
   waitRelease();
   int x, y, z;
   while (!rawRead(x, y, z)) delay(10);
@@ -107,9 +107,9 @@ void target(int i) {
     else { n = 0; sx = sy = sz = 0; }
     delay(20);
   }
-  RX[i] = sx / n; RY[i] = sy / n; RZ[i] = sz / n;
-  Serial.printf("CIBLE %d ecran=(%d,%d) brut=(%d,%d) z=%d\n", i + 1, TX[i], TY[i], RX[i], RY[i], RZ[i]);
-  tft.fillCircle(TX[i], TY[i], 10, TFT_GREEN);
+  RAW_X[i] = sx / n; RAW_Y[i] = sy / n; RAW_Z[i] = sz / n;
+  Serial.printf("CIBLE %d ecran=(%d,%d) brut=(%d,%d) z=%d\n", i + 1, TGT_X[i], TGT_Y[i], RAW_X[i], RAW_Y[i], RAW_Z[i]);
+  tft.fillCircle(TGT_X[i], TGT_Y[i], 10, TFT_GREEN);
   waitRelease();
 }
 
@@ -132,11 +132,11 @@ bool solve3(double m[3][3], double v[3], double out[3]) {
 bool fit() {
   double m[3][3] = {{0}}, vx[3] = {0}, vy[3] = {0};
   for (int i = 0; i < 9; i++) {
-    double r[3] = {(double)RX[i], (double)RY[i], 1.0};
+    double r[3] = {(double)RAW_X[i], (double)RAW_Y[i], 1.0};
     for (int a = 0; a < 3; a++) {
       for (int b = 0; b < 3; b++) m[a][b] += r[a] * r[b];
-      vx[a] += r[a] * TX[i];
-      vy[a] += r[a] * TY[i];
+      vx[a] += r[a] * TGT_X[i];
+      vy[a] += r[a] * TGT_Y[i];
     }
   }
   return solve3(m, vx, CX) && solve3(m, vy, CY);
@@ -154,14 +154,14 @@ void report() {
   double worst = 0, sum = 0;
   for (int i = 0; i < 9; i++) {
     int x, y;
-    mapRaw(RX[i], RY[i], x, y);
-    double e = hypot(x - TX[i], y - TY[i]);
+    mapRaw(RAW_X[i], RAW_Y[i], x, y);
+    double e = hypot(x - TGT_X[i], y - TGT_Y[i]);
     worst = max(worst, e); sum += e;
-    tft.drawCircle(TX[i], TY[i], 10, TFT_CYAN);
+    tft.drawCircle(TGT_X[i], TGT_Y[i], 10, TFT_CYAN);
     tft.fillCircle(x, y, 4, e < 8 ? TFT_GREEN : e < 15 ? TFT_YELLOW : TFT_RED);
     char b[12];
     snprintf(b, sizeof b, "%.0f", e);
-    tft.drawCentreString(b, TX[i], TY[i] + (TY[i] > 200 ? -30 : 14), 2);
+    tft.drawCentreString(b, TGT_X[i], TGT_Y[i] + (TGT_Y[i] > 200 ? -30 : 14), 2);
   }
   char b[64];
   snprintf(b, sizeof b, "moyenne %.1f px   pire %.1f px", sum / 9, worst);
@@ -177,7 +177,7 @@ void freeDraw() {
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.drawCentreString("3/3  Dessine : le point doit suivre ton doigt", 160, 4, 2);
-  for (int i = 0; i < 9; i++) tft.drawCircle(TX[i], TY[i], 6, TFT_DARKGREY);
+  for (int i = 0; i < 9; i++) tft.drawCircle(TGT_X[i], TGT_Y[i], 6, TFT_DARKGREY);
 }
 
 void setup() {
