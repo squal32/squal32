@@ -21,12 +21,16 @@ static void flushCb(lv_disp_drv_t* drv, const lv_area_t* a, lv_color_t* c) {
 }
 
 static void touchCb(lv_indev_drv_t*, lv_indev_data_t* data) {
+  static bool wasDown = false;
   int16_t x, y;
   if (touchRead(x, y)) {
+    if (!wasDown) Serial.printf("appui %d,%d\n", x, y);
+    wasDown = true;
     data->state = LV_INDEV_STATE_PRESSED;
     data->point.x = x;
     data->point.y = y;
   } else {
+    wasDown = false;
     data->state = LV_INDEV_STATE_RELEASED;
   }
 }
