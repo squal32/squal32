@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <esp_sntp.h>
 #include "ui.h"
+#include "wifi_mgr.h"
 
 LV_FONT_DECLARE(font_ui_12);
 LV_FONT_DECLARE(font_ui_14);
@@ -30,7 +31,7 @@ LV_FONT_DECLARE(font_num_52);
 #define C_SUN lv_color_hex(0xFFD53D)
 #define C_DARKTXT lv_color_hex(0x04111F)
 
-enum Page { P_HOME, P_PUNCH, P_FOCUS, P_VISION, P_TRIPS, P_SETTIME, P_COUNT };
+enum Page { P_HOME, P_PUNCH, P_FOCUS, P_VISION, P_TRIPS, P_SETTIME, P_WIFI, P_COUNT };
 enum Expr { X_OPEN, X_HAPPY, X_FOCUS, X_SLEEPY, X_ALERT };
 
 static lv_obj_t* pages[P_COUNT];
@@ -179,17 +180,23 @@ static void buddyCreate(lv_obj_t* parent, int x, int y) {
 
 // ---------- navigation ----------
 
+static bool wifiPausedByUi = false;
+
 static void showPage(Page p) {
+  if (p != P_WIFI && wifiPausedByUi) {
+    wifiResume();
+    wifiPausedByUi = false;
+  }
   for (int i = 0; i < P_COUNT; i++) {
     if (i == p) lv_obj_clear_flag(pages[i], LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(pages[i], LV_OBJ_FLAG_HIDDEN);
   }
-  int active = p == P_HOME || p == P_PUNCH || p == P_SETTIME ? 0 : p == P_FOCUS ? 1 : p == P_VISION ? 2 : 3;
+  int active = p == P_HOME || p == P_PUNCH || p == P_SETTIME || p == P_WIFI ? 0 : p == P_FOCUS ? 1 : p == P_VISION ? 2 : 3;
   for (int i = 0; i < 4; i++) {
     lv_obj_set_style_text_color(tabLbl[i], i == active ? C_CYAN : C_MUTED, 0);
     lv_obj_set_style_border_width(tabBtn[i], i == active ? 2 : 0, 0);
   }
-  if (p == P_HOME || p == P_PUNCH || p == P_SETTIME) buddySet(X_HAPPY);
+  if (p == P_HOME || p == P_PUNCH || p == P_SETTIME || p == P_WIFI) buddySet(X_HAPPY);
   else if (p == P_FOCUS) buddySet(X_FOCUS);
   else buddySet(X_OPEN);
 }
@@ -201,7 +208,7 @@ static void onTab(lv_event_t* e) {
 
 // ---------- accueil ----------
 
-static lv_obj_t *homeTime, *homeDate, *homeSrc, *homePunch, *punchLast;
+static lv_obj_t *homeTime, *homeDate, *homeSrc, *homeWifi, *homePunch, *punchLast;
 
 // ---------- heure : NTP par Wi-Fi, sinon réglage manuel ----------
 
@@ -239,7 +246,16 @@ static void clockTick(lv_timer_t*) {
     lv_label_set_text(homeSrc, timeSynced ? "" : "heure manuelle");
   } else {
     lv_label_set_text(homeDate, "Touche l'heure pour la régler");
-    lv_label_set_text(homeSrc, "heure non réglée");
+    lv_label_set_text(homeSrc, "");
+  }
+  if (wifiConnected()) {
+    String n = wifiSsid();
+    if (n.length() > 16) n = n.substring(0, 15) + ".";
+    lv_label_set_text(homeWifi, n.c_str());
+    lv_obj_set_style_text_color(homeWifi, C_CYAN, 0);
+  } else {
+    lv_label_set_text(homeWifi, "Choisir le Wi-Fi");
+    lv_obj_set_style_text_color(homeWifi, C_AMBER, 0);
   }
 }
 
@@ -333,6 +349,143 @@ static void buildSetTime() {
   button(p, 166, 148, 140, 42, "Valider", &font_ui_18, C_CYAN, C_DARKTXT, C_CYAN, onSetTimeOk, nullptr);
 }
 
+// ---------- Wi-Fi : choix du réseau sur l'écran ----------
+
+static lv_obj_t *wList, *wStatus, *pwOv, *pwTitle, *pwText;
+static lv_timer_t* wTimer = nullptr;
+static char wChosen[33];
+
+static void wifiStatusRefresh() {
+  if (wifiConnected()) {
+    String t = String("Connecté à ") + wifiSsid();
+    lv_label_set_text(wStatus, t.c_str());
+  } else {
+    lv_label_set_text(wStatus, "Non connecté");
+  }
+}
+
+static void connectTo(const char* ssid, const char* pass) {
+  wifiConnect(ssid, pass);
+  wifiPausedByUi = false;
+  char b[64];
+  snprintf(b, sizeof b, "Connexion à %s...", ssid);
+  toast(b);
+  showPage(P_HOME);
+}
+
+static void onNetPick(lv_event_t* e) {
+  int i = (int)(intptr_t)lv_event_get_user_data(e);
+  strncpy(wChosen, wifiScanSsid(i), sizeof wChosen - 1);
+  wChosen[sizeof wChosen - 1] = 0;
+  if (wifiScanOpen(i)) { connectTo(wChosen, ""); return; }
+  char b[64];
+  snprintf(b, sizeof b, "Mot de passe : %s", wChosen);
+  lv_label_set_text(pwTitle, b);
+  lv_textarea_set_text(pwText, "");
+  lv_obj_clear_flag(pwOv, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(pwOv);
+}
+
+static void wifiPoll(lv_timer_t*) {
+  int n = wifiScanCount();
+  if (n < 0) return;
+  lv_timer_del(wTimer);
+  wTimer = nullptr;
+  lv_obj_clean(wList);
+  if (n == 0) {
+    lbl(wList, "Aucun réseau trouvé.\nSeul le Wi-Fi 2,4 GHz est visible.", &font_ui_14, C_MUTED, 0, 0);
+    return;
+  }
+  for (int i = 0; i < n; i++) {
+    int r = wifiScanRssi(i);
+    char b[64];
+    snprintf(b, sizeof b, "%s   %s%s", wifiScanSsid(i), r > -60 ? "fort" : r > -75 ? "moyen" : "faible", wifiScanOpen(i) ? " · ouvert" : "");
+    lv_obj_t* bt = button(wList, 0, 0, 286, 38, b, &font_ui_14, C_CARD, C_INK, C_LINE, onNetPick, (void*)(intptr_t)i);
+    lv_label_set_long_mode(lv_obj_get_child(bt, 0), LV_LABEL_LONG_DOT);
+    lv_obj_set_width(lv_obj_get_child(bt, 0), 260);
+  }
+}
+
+static void startScan() {
+  lv_obj_clean(wList);
+  lbl(wList, "Recherche des réseaux...", &font_ui_14, C_MUTED, 0, 0);
+  wifiPausedByUi = true;
+  wifiScanStart();
+  if (!wTimer) wTimer = lv_timer_create(wifiPoll, 300, nullptr);
+}
+
+static void openWifi(lv_event_t*) {
+  showPage(P_WIFI);
+  wifiStatusRefresh();
+  startScan();
+}
+
+static void onRescan(lv_event_t*) { startScan(); }
+static void onWifiBack(lv_event_t*) { showPage(P_HOME); }
+static void onForget(lv_event_t*) {
+  wifiForgetAll();
+  wifiStatusRefresh();
+  toast("Réseaux enregistrés oubliés");
+}
+
+static void onKeyboard(lv_event_t* e) {
+  lv_event_code_t c = lv_event_get_code(e);
+  if (c == LV_EVENT_READY) {
+    lv_obj_add_flag(pwOv, LV_OBJ_FLAG_HIDDEN);
+    connectTo(wChosen, lv_textarea_get_text(pwText));
+    lv_textarea_set_text(pwText, "");
+  } else if (c == LV_EVENT_CANCEL) {
+    lv_obj_add_flag(pwOv, LV_OBJ_FLAG_HIDDEN);
+    lv_textarea_set_text(pwText, "");
+  }
+}
+
+static void buildWifi() {
+  lv_obj_t* p = pages[P_WIFI];
+  lbl(p, "Wi-Fi", &font_ui_14, C_INK, 12, 4);
+  wStatus = lbl(p, "", &font_ui_12, C_MUTED, 64, 6);
+  wList = lv_obj_create(p);
+  lv_obj_set_pos(wList, 8, 28);
+  lv_obj_set_size(wList, 304, 120);
+  lv_obj_set_style_bg_color(wList, C_BG, 0);
+  lv_obj_set_style_border_width(wList, 0, 0);
+  lv_obj_set_style_pad_all(wList, 2, 0);
+  lv_obj_set_style_pad_row(wList, 6, 0);
+  lv_obj_set_flex_flow(wList, LV_FLEX_FLOW_COLUMN);
+  button(p, 8, 154, 96, 38, "Rechercher", &font_ui_14, C_CARD, C_INK, C_LINE, onRescan, nullptr);
+  button(p, 112, 154, 96, 38, "Oublier tout", &font_ui_14, C_CARD, C_MUTED, C_LINE, onForget, nullptr);
+  button(p, 216, 154, 96, 38, "Retour", &font_ui_14, C_CARD, C_INK, C_BLUE, onWifiBack, nullptr);
+
+  // Saisie du mot de passe : plein écran avec clavier
+  pwOv = lv_obj_create(lv_scr_act());
+  lv_obj_set_pos(pwOv, 0, 0);
+  lv_obj_set_size(pwOv, 320, 240);
+  lv_obj_set_style_bg_color(pwOv, C_BG, 0);
+  lv_obj_set_style_border_width(pwOv, 0, 0);
+  lv_obj_set_style_radius(pwOv, 0, 0);
+  lv_obj_set_style_pad_all(pwOv, 0, 0);
+  noScroll(pwOv);
+  pwTitle = lbl(pwOv, "", &font_ui_14, C_MUTED, 8, 3);
+  pwText = lv_textarea_create(pwOv);
+  lv_obj_set_pos(pwText, 8, 22);
+  lv_obj_set_size(pwText, 304, 36);
+  lv_textarea_set_one_line(pwText, true);
+  lv_textarea_set_password_mode(pwText, true);
+  lv_textarea_set_placeholder_text(pwText, "mot de passe");
+  lv_obj_set_style_bg_color(pwText, C_CARD, 0);
+  lv_obj_set_style_text_color(pwText, C_INK, 0);
+  lv_obj_set_style_border_color(pwText, C_CYAN, 0);
+  lv_obj_t* kb = lv_keyboard_create(pwOv);
+  lv_obj_set_pos(kb, 0, 62);
+  lv_obj_set_size(kb, 320, 178);
+  lv_keyboard_set_textarea(kb, pwText);
+  lv_obj_set_style_bg_color(kb, C_BAR, 0);
+  lv_obj_set_style_bg_color(kb, C_CARD2, LV_PART_ITEMS);
+  lv_obj_set_style_text_color(kb, C_INK, LV_PART_ITEMS);
+  lv_obj_add_event_cb(kb, onKeyboard, LV_EVENT_ALL, nullptr);
+  lv_obj_add_flag(pwOv, LV_OBJ_FLAG_HIDDEN);
+}
+
 static void onPunchCard(lv_event_t*) { showPage(P_PUNCH); }
 
 static lv_obj_t* card(lv_obj_t* parent, int x, int w, const char* title, const char* value, const lv_font_t* vfont,
@@ -351,7 +504,16 @@ static void buildHome() {
   homeTime = lbl(p, "--:--", &font_num_52, C_INK, 10, 28);
   homeDate = lbl(p, "", &font_ui_14, C_CYAN, 14, 84);
   homeSrc = lbl(p, "", &font_ui_12, C_AMBER, 0, 0);
-  lv_obj_align(homeSrc, LV_ALIGN_TOP_RIGHT, -12, 4);
+  lv_obj_align(homeSrc, LV_ALIGN_TOP_RIGHT, -12, 87);
+  lv_obj_t* wb = lv_btn_create(p);  // zone tactile en haut à droite : état du Wi-Fi, ouvre le choix du réseau
+  lv_obj_set_pos(wb, 168, 0);
+  lv_obj_set_size(wb, 152, 30);
+  lv_obj_set_style_bg_opa(wb, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_shadow_width(wb, 0, 0);
+  lv_obj_set_style_border_width(wb, 0, 0);
+  lv_obj_add_event_cb(wb, openWifi, LV_EVENT_CLICKED, nullptr);
+  homeWifi = lbl(wb, "", &font_ui_12, C_AMBER, 0, 0);
+  lv_obj_align(homeWifi, LV_ALIGN_RIGHT_MID, -2, 0);
   lv_obj_t* tapTargets[2] = {homeTime, homeDate};  // toucher l'heure ou la date ouvre le réglage
   for (lv_obj_t* o : tapTargets) {
     lv_obj_add_flag(o, LV_OBJ_FLAG_CLICKABLE);
@@ -673,9 +835,10 @@ static void buildTrips() {
 
 constexpr uint32_t IDLE_MS = 60000;          // 1 min sans toucher l'écran
 constexpr uint32_t DEEP_MS = 5UL * 60000;    // puis l'écran s'éteint complètement au bout de 5 min
-enum SExpr { S_OPEN, S_LEFT, S_RIGHT, S_HAPPY, S_SURPRISED, S_SLEEP };
+enum SExpr { S_OPEN, S_LEFT, S_RIGHT, S_HAPPY, S_SURPRISED, S_SLEEP, S_CLOSED };
 
-static lv_obj_t *sOv, *sEye[2], *sSmile, *sOh, *sZ, *sClock;
+static lv_obj_t *sOv, *sEye[2], *sSmile, *sOh, *sZ, *sClock, *sName, *sTag, *sBar;
+static bool booting = false;
 static bool sleeping = false;
 static SExpr sExpr = S_OPEN;
 static uint32_t sSince = 0, sNextExpr = 0, sNextBlink = 0, sBlinkEnd = 0;
@@ -694,6 +857,7 @@ static void saverApply(bool blink) {
     case S_HAPPY: h = 14; smile = true; break;
     case S_SURPRISED: w = 28; h = 50; oh = true; break;
     case S_SLEEP: h = 5; break;
+    case S_CLOSED: h = 4; break;
   }
   if (blink && sExpr != S_SLEEP) h = 4;
   lv_color_t col = sExpr == S_SLEEP ? lv_color_hex(0x9A8A63) : C_CYAN;
@@ -723,12 +887,17 @@ static void saverEnter() {
   sNextBlink = sSince + 2000;
   saverClock();
   saverApply(false);
+  lv_obj_set_style_text_color(sName, C_MUTED, 0);
+  lv_obj_clear_flag(sClock, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(sTag, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(sBar, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(sOv, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(sOv);
   backlight(90);
 }
 
 static void onSaverTouch(lv_event_t*) {
+  if (booting) return;
   sleeping = false;
   lv_obj_add_flag(sOv, LV_OBJ_FLAG_HIDDEN);
   backlight(255);
@@ -737,8 +906,20 @@ static void onSaverTouch(lv_event_t*) {
 
 static void saverTick(lv_timer_t*) {
   uint32_t now = millis();
+  if (booting) {  // démarrage : yeux fermés, ils s'ouvrent, un clignement, un sourire
+    uint32_t t = now - sSince;
+    sExpr = t < 900 ? S_CLOSED : t < 2000 ? S_OPEN : S_HAPPY;
+    saverApply(t > 1400 && t < 1540);
+    uint32_t pc = t * 100 / 2800;
+    lv_bar_set_value(sBar, pc > 100 ? 100 : (int)pc, LV_ANIM_OFF);
+    if (t > 2800) {
+      booting = false;
+      lv_obj_add_flag(sOv, LV_OBJ_FLAG_HIDDEN);
+    }
+    return;
+  }
   if (!sleeping) {
-    bool busy = fState == F_RUN || !lv_obj_has_flag(vOv, LV_OBJ_FLAG_HIDDEN);
+    bool busy = fState == F_RUN || !lv_obj_has_flag(vOv, LV_OBJ_FLAG_HIDDEN) || !lv_obj_has_flag(pwOv, LV_OBJ_FLAG_HIDDEN);
     if (!busy && lv_disp_get_inactive_time(nullptr) > IDLE_MS) saverEnter();
     return;
   }
@@ -796,11 +977,38 @@ static void buildSaver() {
   lv_obj_set_style_border_width(sOh, 3, 0);
   lv_obj_clear_flag(sOh, LV_OBJ_FLAG_CLICKABLE);
   sZ = lbl(sOv, "z", &font_ui_18, lv_color_hex(0x9A8A63), 238, 22);
-  sClock = lbl(sOv, "08:42", &font_num_20, C_MUTED, 0, 170);
-  lv_obj_set_width(sClock, 320);
-  lv_obj_set_style_text_align(sClock, LV_TEXT_ALIGN_CENTER, 0);
+  sName = lbl(sOv, "clin", &font_ui_26, C_CYAN, 0, 154);
+  sTag = lbl(sOv, "ton compagnon de bureau", &font_ui_12, C_MUTED, 0, 190);
+  sClock = lbl(sOv, "--:--", &font_num_20, C_MUTED, 0, 194);
+  lv_obj_t* centred[3] = {sName, sTag, sClock};
+  for (lv_obj_t* o : centred) {
+    lv_obj_set_width(o, 320);
+    lv_obj_set_style_text_align(o, LV_TEXT_ALIGN_CENTER, 0);
+  }
+  lv_obj_set_style_text_letter_space(sName, 6, 0);
+  sBar = lv_bar_create(sOv);
+  lv_obj_set_pos(sBar, 100, 218);
+  lv_obj_set_size(sBar, 120, 4);
+  lv_bar_set_range(sBar, 0, 100);
+  lv_obj_set_style_bg_color(sBar, C_CARD2, LV_PART_MAIN);
+  lv_obj_set_style_bg_color(sBar, C_CYAN, LV_PART_INDICATOR);
   lv_obj_add_flag(sOv, LV_OBJ_FLAG_HIDDEN);
   lv_timer_create(saverTick, 60, nullptr);
+}
+
+static void bootStart() {
+  booting = true;
+  sSince = millis();
+  sLastKey = -1;
+  sExpr = S_CLOSED;
+  saverApply(false);
+  lv_obj_set_style_text_color(sName, C_CYAN, 0);
+  lv_obj_add_flag(sClock, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(sTag, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(sBar, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(sZ, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(sOv, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(sOv);
 }
 
 // ---------- assemblage ----------
@@ -815,6 +1023,7 @@ void uiInit() {
   buildVision();
   buildTrips();
   buildSetTime();
+  buildWifi();
   sntp_set_time_sync_notification_cb(onSntpSync);
 
   lv_obj_t* bar = panel(lv_scr_act(), 0, 196, 320, 44, C_BAR, C_LINE, 0);
@@ -839,6 +1048,7 @@ void uiInit() {
   }
   buddyCreate(bar, 136, 4);
   lv_obj_move_foreground(vOv);  // l'écran d'exercice recouvre aussi la barre d'onglets
+  lv_obj_move_foreground(pwOv);
 
   toastObj = panel(lv_scr_act(), 14, 150, 292, 34, C_INK, C_INK, 10);
   toastLbl = lbl(toastObj, "", &font_ui_14, C_DARKTXT, 0, 0);
@@ -849,4 +1059,5 @@ void uiInit() {
   buildSaver();
 
   showPage(P_HOME);
+  bootStart();
 }

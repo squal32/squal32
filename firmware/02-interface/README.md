@@ -1,4 +1,6 @@
-# Étape 4 — interface LVGL (données de démonstration)
+# clin — interface LVGL
+
+**clin** (comme un clin d'œil) : le petit compagnon qui cligne des yeux et prend soin des tiens.
 
 Reproduit la maquette validée sur la vraie carte : accueil, pointage, focus (minuteur 25/5 et 50/10),
 vision (huit exercices, arrêt immédiat), trajets, compagnon animé dans la barre du bas.
@@ -15,14 +17,20 @@ Pas encore de Wi-Fi, de sauvegarde des pointages, ni d'alerte alarme : ce sont l
 
 ## Heure réelle
 L'heure vient d'Internet (NTP) dès que la carte est connectée au Wi-Fi, heure de Paris.
-1. Copie `src/secrets.example.h` en `src/secrets.h` et mets le nom et le mot de passe de ton Wi-Fi
-   (deux réseaux possibles : maison et partage du téléphone). Ce fichier n'est jamais publié.
+1. **Depuis l'écran** : touche le nom du Wi-Fi en haut à droite de l'accueil (« Choisir le Wi-Fi »),
+   choisis le réseau (box ou partage de connexion du téléphone), tape le mot de passe sur le clavier.
+   Trois réseaux au plus sont gardés en mémoire ; la carte passe de l'un à l'autre toute seule.
+   Seuls les réseaux 2,4 GHz sont visibles.
+   Facultatif : `src/secrets.h` (copie de `secrets.example.h`, jamais publié) pour préremplir des réseaux.
 2. Sans Wi-Fi : touche l'heure sur l'accueil pour la régler à la main (« heure manuelle » s'affiche).
    La carte n'a pas de pile : après une coupure de courant, l'heure manuelle est perdue.
 
+## Démarrage
+Écran d'accueil « clin » : le compagnon ouvre les yeux, cligne, sourit, barre de chargement (environ 3 s).
+
 ## Veille
 Après 1 minute sans toucher l'écran, si aucun minuteur ni exercice ne tourne, l'écran passe en veille :
-le compagnon seul, en grand, qui cligne, regarde à gauche et à droite, sourit. Rétroéclairage baissé.
+le compagnon seul, en grand, avec le nom « clin » et l'heure, qui cligne, regarde à gauche et à droite, sourit. Rétroéclairage baissé.
 Au bout de 5 minutes l'écran s'éteint complètement. Un appui le rallume sans déclencher de bouton.
 
 ## Tactile
