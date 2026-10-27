@@ -8,6 +8,8 @@
 constexpr int TFT_BL_PIN = 21;
 
 TFT_eSPI tft;
+
+void backlight(uint8_t level) { ledcWrite(0, level); }
 static lv_disp_draw_buf_t drawBuf;
 static lv_color_t bufA[320 * 30];
 
@@ -44,8 +46,9 @@ static void touchCb(lv_indev_drv_t*, lv_indev_data_t* data) {
 
 void setup() {
   Serial.begin(115200);
-  pinMode(TFT_BL_PIN, OUTPUT);
-  digitalWrite(TFT_BL_PIN, HIGH);
+  ledcSetup(0, 5000, 8);
+  ledcAttachPin(TFT_BL_PIN, 0);
+  backlight(255);
   tft.init();
   tft.setRotation(1);
   touchBegin();

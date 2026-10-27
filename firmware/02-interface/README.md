@@ -14,6 +14,12 @@ Pas encore de Wi-Fi, de sauvegarde des pointages, ni d'alerte alarme : ce sont l
    Les valeurs sont enregistrées. Pour recalibrer : maintiens l'écran pendant le démarrage.
 4. Essaie les quatre onglets, les gros boutons, un exercice de vision, le minuteur.
 
+## Veille
+Après 1 minute sans toucher l'écran, si aucun minuteur ni exercice ne tourne, l'écran passe en veille :
+le compagnon seul, en grand, qui cligne, regarde à gauche et à droite, sourit. Rétroéclairage baissé.
+Au bout de 5 minutes il s'endort (yeux fermés, « z z z », écran encore plus sombre). Un appui le réveille
+sans déclencher de bouton.
+
 ## Tactile
 La correspondance du tactile vient du diagnostic à 9 cibles (`03-diag-tactile`) et fonctionne sans calibration.
 Pour recalibrer : maintiens l'écran au démarrage, puis touche les 9 cibles (lève le doigt entre chaque).

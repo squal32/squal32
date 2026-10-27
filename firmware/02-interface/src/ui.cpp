@@ -225,7 +225,8 @@ static void buildHome() {
   lbl(p, "Bonjour, Dimitri", &font_ui_14, C_MUTED, 14, 2);
   homeTime = lbl(p, "08:42", &font_num_52, C_INK, 10, 28);
   lbl(p, "lundi 26 octobre", &font_ui_14, C_CYAN, 14, 84);
-  lbl(p, "DÉMO", &font_ui_12, C_AMBER, 272, 4);
+  lv_obj_t* demo = lbl(p, "DÉMO", &font_ui_12, C_AMBER, 0, 0);
+  lv_obj_align(demo, LV_ALIGN_TOP_RIGHT, -12, 4);
   lv_obj_t* c1 = card(p, 12, 146, "POINTAGE", "08:03", &font_num_20, "Arrivée", false, &homePunch);
   lv_obj_add_flag(c1, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(c1, onPunchCard, LV_EVENT_CLICKED, nullptr);
@@ -239,7 +240,7 @@ static void onPunch(lv_event_t* e) {
   bool arrival = (intptr_t)lv_event_get_user_data(e) == 1;
   uint32_t s = demoBase + millis() / 1000;
   char b[48];
-  snprintf(b, sizeof b, "%s enregistré · %02u:%02u", arrival ? "Arrivée" : "Départ", (unsigned)(s / 3600 % 24), (unsigned)(s / 60 % 60));
+  snprintf(b, sizeof b, "%s · %02u:%02u", arrival ? "Arrivée enregistrée" : "Départ enregistré", (unsigned)(s / 3600 % 24), (unsigned)(s / 60 % 60));
   toast(b);
   snprintf(b, sizeof b, "Dernier : %s %02u:%02u", arrival ? "arrivée" : "départ", (unsigned)(s / 3600 % 24), (unsigned)(s / 60 % 60));
   lv_label_set_text(punchLast, b);
@@ -372,12 +373,12 @@ static uint32_t vStart = 0, vDur = 0;
 
 static void dotAt(float x, float y, int size) {
   lv_obj_set_size(vDot, size, size);
-  lv_obj_set_pos(vDot, (int)(160 + x - size / 2), (int)(104 + y - size / 2));
+  lv_obj_set_pos(vDot, (int)(160 + x - size / 2), (int)(96 + y - size / 2));
 }
 
 static void ringSize(int size) {
   lv_obj_set_size(vRing, size, size);
-  lv_obj_set_pos(vRing, 160 - size / 2, 104 - size / 2);
+  lv_obj_set_pos(vRing, 160 - size / 2, 96 - size / 2);
 }
 
 static void visionEnd(bool done) {
@@ -398,7 +399,7 @@ static void visionTick(lv_timer_t*) {
     case 0: break;
     case 1: {  // un cercle qui grossit toutes les 3 s : un clignement doux
       float p = fmodf(t, 3.0f);
-      ringSize(p < 0.6f ? 50 + (int)(60 * p / 0.6f) : 110 - (int)(60 * (p - 0.6f) / 2.4f));
+      ringSize(p < 0.6f ? 50 + (int)(50 * p / 0.6f) : 100 - (int)(50 * (p - 0.6f) / 2.4f));
       lv_label_set_text(vText, p < 1.0f ? "Cligne doucement" : "Détends tes yeux");
       break;
     }
@@ -417,7 +418,7 @@ static void visionTick(lv_timer_t*) {
     }
     case 6: {  // 4 s d'inspiration, 6 s d'expiration
       float p = fmodf(t, 10.0f);
-      ringSize(p < 4.0f ? 40 + (int)(70 * p / 4.0f) : 110 - (int)(70 * (p - 4.0f) / 6.0f));
+      ringSize(p < 4.0f ? 40 + (int)(60 * p / 4.0f) : 100 - (int)(60 * (p - 4.0f) / 6.0f));
       lv_label_set_text(vText, p < 4.0f ? "Inspire" : "Expire");
       break;
     }
@@ -437,16 +438,16 @@ static void visionStart(int idx) {
   switch (idx) {
     case 0:
       lv_label_set_text(vText, "Regarde un objet à 6 mètres\npendant 20 secondes");
-      lv_obj_set_pos(vText, 40, 80);
+      lv_obj_set_y(vText, 74);
       break;
     case 1: case 6:
       lv_obj_clear_flag(vRing, LV_OBJ_FLAG_HIDDEN);
-      lv_obj_set_pos(vText, 100, 160);
+      lv_obj_set_y(vText, 150);
       if (idx == 6) lv_label_set_text(vHint, "Relâche les épaules");
       break;
     case 2:
       lv_obj_clear_flag(vDot, LV_OBJ_FLAG_HIDDEN);
-      lv_obj_set_pos(vText, 100, 160);
+      lv_obj_set_y(vText, 150);
       break;
     default:
       lv_obj_clear_flag(vDot, LV_OBJ_FLAG_HIDDEN);
@@ -481,10 +482,15 @@ static void buildVision() {
   vRing = panel(vOv, 0, 0, 50, 50, lv_color_hex(0x04060A), C_SUN, LV_RADIUS_CIRCLE);
   lv_obj_set_style_border_width(vRing, 3, 0);
   vDot = panel(vOv, 0, 0, 16, 16, C_SUN, C_SUN, LV_RADIUS_CIRCLE);
-  vText = lbl(vOv, "", &font_ui_18, C_INK, 100, 160);
-  vHint = lbl(vOv, "", &font_ui_14, C_MUTED, 100, 186);
+  vText = lbl(vOv, "", &font_ui_18, C_INK, 0, 150);
+  vHint = lbl(vOv, "", &font_ui_14, C_MUTED, 0, 174);
+  lv_obj_t* centred[2] = {vText, vHint};
+  for (lv_obj_t* t : centred) {
+    lv_obj_set_width(t, 320);
+    lv_obj_set_style_text_align(t, LV_TEXT_ALIGN_CENTER, 0);
+  }
   button(vOv, 12, 194, 132, 40, "Arrêter", &font_ui_14, lv_color_hex(0x151A24), C_INK, lv_color_hex(0x3A4659), onVisionStop, nullptr);
-  lv_obj_t* d = lbl(vOv, "Confort visuel : ne remplace pas un avis médical.", &font_ui_12, lv_color_hex(0x6C7C90), 156, 198);
+  lv_obj_t* d = lbl(vOv, "Confort visuel,\npas un avis médical.", &font_ui_12, lv_color_hex(0x6C7C90), 156, 198);
   lv_obj_set_width(d, 152);
   lv_label_set_long_mode(d, LV_LABEL_LONG_WRAP);
 }
@@ -501,7 +507,8 @@ static const Trip TRIPS[3] = {
 static void buildTrips() {
   lv_obj_t* p = pages[P_TRIPS];
   lbl(p, "Temps de trajet", &font_ui_14, C_INK, 14, 3);
-  lbl(p, "fictif · MàJ 08:41", &font_ui_12, C_AMBER, 214, 6);
+  lv_obj_t* upd = lbl(p, "fictif · MàJ 08:41", &font_ui_12, C_AMBER, 0, 0);
+  lv_obj_align(upd, LV_ALIGN_TOP_RIGHT, -12, 6);
   int best = 0;
   for (int i = 1; i < 3; i++) if (TRIPS[i].minutes < TRIPS[best].minutes) best = i;
   for (int i = 0; i < 3; i++) {
@@ -524,6 +531,141 @@ static void buildTrips() {
     lv_obj_set_style_bg_color(bar, C_CARD2, LV_PART_MAIN);
     lv_obj_set_style_bg_color(bar, isBest ? C_CYAN : C_BLUE, LV_PART_INDICATOR);
   }
+}
+
+// ---------- veille : le compagnon seul, quand rien ne tourne ----------
+
+constexpr uint32_t IDLE_MS = 60000;          // 1 min sans toucher l'écran
+constexpr uint32_t DEEP_MS = 5UL * 60000;    // puis il s'endort au bout de 5 min
+enum SExpr { S_OPEN, S_LEFT, S_RIGHT, S_HAPPY, S_SURPRISED, S_SLEEP };
+
+static lv_obj_t *sOv, *sEye[2], *sSmile, *sOh, *sZ, *sClock;
+static bool sleeping = false;
+static SExpr sExpr = S_OPEN;
+static uint32_t sSince = 0, sNextExpr = 0, sNextBlink = 0, sBlinkEnd = 0;
+static int sLastKey = -1;
+
+static void saverApply(bool blink) {
+  int key = sExpr * 2 + (blink ? 1 : 0);
+  if (key == sLastKey) return;
+  sLastKey = key;
+  int w = 26, h = 40, dx = 0;
+  bool smile = false, oh = false;
+  switch (sExpr) {
+    case S_OPEN: break;
+    case S_LEFT: dx = -14; break;
+    case S_RIGHT: dx = 14; break;
+    case S_HAPPY: h = 14; smile = true; break;
+    case S_SURPRISED: w = 28; h = 50; oh = true; break;
+    case S_SLEEP: h = 5; break;
+  }
+  if (blink && sExpr != S_SLEEP) h = 4;
+  lv_color_t col = sExpr == S_SLEEP ? lv_color_hex(0x9A8A63) : C_CYAN;
+  for (int i = 0; i < 2; i++) {
+    int cx = (i == 0 ? 39 : 103) + dx;  // centres des yeux dans le visage (142 x 96 utiles)
+    lv_obj_set_size(sEye[i], w, h);
+    lv_obj_set_pos(sEye[i], cx - w / 2, 40 - h / 2);
+    lv_obj_set_style_bg_color(sEye[i], col, 0);
+  }
+  if (smile) lv_obj_clear_flag(sSmile, LV_OBJ_FLAG_HIDDEN); else lv_obj_add_flag(sSmile, LV_OBJ_FLAG_HIDDEN);
+  if (oh) lv_obj_clear_flag(sOh, LV_OBJ_FLAG_HIDDEN); else lv_obj_add_flag(sOh, LV_OBJ_FLAG_HIDDEN);
+  if (sExpr == S_SLEEP) lv_obj_clear_flag(sZ, LV_OBJ_FLAG_HIDDEN); else lv_obj_add_flag(sZ, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void saverClock() {
+  uint32_t s = demoBase + millis() / 1000;
+  char b[8];
+  snprintf(b, sizeof b, "%02u:%02u", (unsigned)(s / 3600 % 24), (unsigned)(s / 60 % 60));
+  lv_label_set_text(sClock, b);
+}
+
+static void saverEnter() {
+  sleeping = true;
+  sSince = millis();
+  sExpr = S_OPEN;
+  sLastKey = -1;
+  sNextExpr = sSince + 3000;
+  sNextBlink = sSince + 2000;
+  saverClock();
+  saverApply(false);
+  lv_obj_clear_flag(sOv, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(sOv);
+  backlight(90);
+}
+
+static void onSaverTouch(lv_event_t*) {
+  sleeping = false;
+  lv_obj_add_flag(sOv, LV_OBJ_FLAG_HIDDEN);
+  backlight(255);
+  buddySet(X_HAPPY);
+}
+
+static void saverTick(lv_timer_t*) {
+  uint32_t now = millis();
+  if (!sleeping) {
+    bool busy = fState == F_RUN || !lv_obj_has_flag(vOv, LV_OBJ_FLAG_HIDDEN);
+    if (!busy && lv_disp_get_inactive_time(nullptr) > IDLE_MS) saverEnter();
+    return;
+  }
+  if (sExpr != S_SLEEP && now - sSince > DEEP_MS) {
+    sExpr = S_SLEEP;
+    backlight(25);
+  }
+  if (sExpr != S_SLEEP && now >= sNextExpr) {
+    int r = random(100);
+    sExpr = r < 35 ? S_OPEN : r < 55 ? S_LEFT : r < 75 ? S_RIGHT : r < 95 ? S_HAPPY : S_SURPRISED;
+    sNextExpr = now + random(3000, 7000);
+  }
+  if (now >= sNextBlink) {
+    sBlinkEnd = now + 140;
+    sNextBlink = now + random(2500, 6000);
+  }
+  saverApply(now < sBlinkEnd);
+  if (sExpr == S_SLEEP) {
+    static const char* zz[3] = {"z", "z  z", "z  z  z"};
+    lv_label_set_text(sZ, zz[(now / 900) % 3]);
+  }
+  static uint32_t lastClock = 0;
+  if (now - lastClock > 1000) { lastClock = now; saverClock(); }
+}
+
+static void buildSaver() {
+  sOv = lv_obj_create(lv_scr_act());
+  lv_obj_set_pos(sOv, 0, 0);
+  lv_obj_set_size(sOv, 320, 240);
+  lv_obj_set_style_bg_color(sOv, lv_color_hex(0x05080E), 0);
+  lv_obj_set_style_border_width(sOv, 0, 0);
+  lv_obj_set_style_radius(sOv, 0, 0);
+  lv_obj_set_style_pad_all(sOv, 0, 0);
+  noScroll(sOv);
+  lv_obj_add_event_cb(sOv, onSaverTouch, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* face = panel(sOv, 85, 44, 150, 104, lv_color_hex(0x0E1A2B), lv_color_hex(0x1E3550), 40);
+  lv_obj_set_style_border_width(face, 4, 0);
+  lv_obj_clear_flag(face, LV_OBJ_FLAG_CLICKABLE);
+  for (int i = 0; i < 2; i++) {
+    sEye[i] = panel(face, 0, 0, 26, 40, C_CYAN, C_CYAN, 13);
+    lv_obj_set_style_border_width(sEye[i], 0, 0);
+    lv_obj_clear_flag(sEye[i], LV_OBJ_FLAG_CLICKABLE);
+  }
+  sSmile = lv_arc_create(face);
+  lv_obj_set_size(sSmile, 44, 44);
+  lv_obj_set_pos(sSmile, 49, 38);
+  lv_arc_set_bg_angles(sSmile, 0, 0);
+  lv_arc_set_angles(sSmile, 30, 150);
+  lv_obj_remove_style(sSmile, nullptr, LV_PART_KNOB);
+  lv_obj_clear_flag(sSmile, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_set_style_arc_opa(sSmile, LV_OPA_TRANSP, LV_PART_MAIN);
+  lv_obj_set_style_arc_width(sSmile, 5, LV_PART_INDICATOR);
+  lv_obj_set_style_arc_color(sSmile, C_CYAN, LV_PART_INDICATOR);
+  sOh = panel(face, 63, 70, 16, 16, lv_color_hex(0x0E1A2B), C_CYAN, LV_RADIUS_CIRCLE);
+  lv_obj_set_style_border_width(sOh, 3, 0);
+  lv_obj_clear_flag(sOh, LV_OBJ_FLAG_CLICKABLE);
+  sZ = lbl(sOv, "z", &font_ui_18, lv_color_hex(0x9A8A63), 238, 22);
+  sClock = lbl(sOv, "08:42", &font_num_20, C_MUTED, 0, 170);
+  lv_obj_set_width(sClock, 320);
+  lv_obj_set_style_text_align(sClock, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_add_flag(sOv, LV_OBJ_FLAG_HIDDEN);
+  lv_timer_create(saverTick, 60, nullptr);
 }
 
 // ---------- assemblage ----------
@@ -566,6 +708,8 @@ void uiInit() {
   lv_obj_center(toastLbl);
   lv_obj_add_flag(toastObj, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(toastObj);
+
+  buildSaver();
 
   showPage(P_HOME);
 }
