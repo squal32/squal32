@@ -31,7 +31,7 @@ LV_FONT_DECLARE(font_num_52);
 #define C_SUN lv_color_hex(0xFFD53D)
 #define C_DARKTXT lv_color_hex(0x04111F)
 
-enum Page { P_HOME, P_PUNCH, P_FOCUS, P_VISION, P_TRIPS, P_SETTIME, P_WIFI, P_COUNT };
+enum Page { P_HOME, P_PUNCH, P_FOCUS, P_VISION, P_TRIPS, P_SETTIME, P_WIFI, P_SETTINGS, P_COUNT };
 enum Expr { X_OPEN, X_HAPPY, X_FOCUS, X_SLEEPY, X_ALERT };
 
 static lv_obj_t* pages[P_COUNT];
@@ -159,6 +159,9 @@ static void blinkStart(lv_timer_t*) {
   lv_timer_set_repeat_count(t, 1);
 }
 
+static void openSettings();
+static void onBuddyLong(lv_event_t*) { openSettings(); }
+
 static void buddyCreate(lv_obj_t* parent, int x, int y) {
   buddyFace = panel(parent, x, y, 48, 34, lv_color_hex(0x0E1A2B), lv_color_hex(0x1E3550), 14);
   lv_obj_set_style_border_width(buddyFace, 2, 0);
@@ -172,8 +175,11 @@ static void buddyCreate(lv_obj_t* parent, int x, int y) {
     lv_obj_set_style_radius(e, 5, 0);
     lv_obj_set_style_pad_all(e, 0, 0);
     noScroll(e);
+    lv_obj_clear_flag(e, LV_OBJ_FLAG_CLICKABLE);
     (i == 0 ? eyeL : eyeR) = e;
   }
+  lv_obj_set_style_border_color(buddyFace, C_CYAN, LV_STATE_PRESSED);
+  lv_obj_add_event_cb(buddyFace, onBuddyLong, LV_EVENT_LONG_PRESSED, nullptr);
   buddyApply();
   lv_timer_create(blinkStart, 4200, nullptr);
 }
@@ -191,12 +197,12 @@ static void showPage(Page p) {
     if (i == p) lv_obj_clear_flag(pages[i], LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(pages[i], LV_OBJ_FLAG_HIDDEN);
   }
-  int active = p == P_HOME || p == P_PUNCH || p == P_SETTIME || p == P_WIFI ? 0 : p == P_FOCUS ? 1 : p == P_VISION ? 2 : 3;
+  int active = p == P_SETTINGS || p == P_WIFI || p == P_SETTIME ? -1 : p == P_HOME || p == P_PUNCH ? 0 : p == P_FOCUS ? 1 : p == P_VISION ? 2 : 3;
   for (int i = 0; i < 4; i++) {
     lv_obj_set_style_text_color(tabLbl[i], i == active ? C_CYAN : C_MUTED, 0);
     lv_obj_set_style_border_width(tabBtn[i], i == active ? 2 : 0, 0);
   }
-  if (p == P_HOME || p == P_PUNCH || p == P_SETTIME || p == P_WIFI) buddySet(X_HAPPY);
+  if (p == P_HOME || p == P_PUNCH || p == P_SETTIME || p == P_WIFI || p == P_SETTINGS) buddySet(X_HAPPY);
   else if (p == P_FOCUS) buddySet(X_FOCUS);
   else buddySet(X_OPEN);
 }
@@ -421,7 +427,7 @@ static void openWifi(lv_event_t*) {
 }
 
 static void onRescan(lv_event_t*) { startScan(); }
-static void onWifiBack(lv_event_t*) { showPage(P_HOME); }
+static void onWifiBack(lv_event_t*) { showPage(P_SETTINGS); }
 static void onForget(lv_event_t*) {
   wifiForgetAll();
   wifiStatusRefresh();
@@ -484,6 +490,38 @@ static void buildWifi() {
   lv_obj_set_style_text_color(kb, C_INK, LV_PART_ITEMS);
   lv_obj_add_event_cb(kb, onKeyboard, LV_EVENT_ALL, nullptr);
   lv_obj_add_flag(pwOv, LV_OBJ_FLAG_HIDDEN);
+}
+
+// ---------- réglages : appui long sur le compagnon ----------
+
+static lv_obj_t* setWifiLbl;
+
+static void openSettings() {
+  if (wifiConnected()) {
+    String t = String("Wi-Fi\n") + wifiSsid();
+    lv_label_set_text(setWifiLbl, t.c_str());
+  } else {
+    lv_label_set_text(setWifiLbl, "Wi-Fi\nnon connecté");
+  }
+  showPage(P_SETTINGS);
+}
+
+static void onSetWifi(lv_event_t*) { openWifi(nullptr); }
+static void onSetClock(lv_event_t*) { openSetTime(nullptr); }
+static void onNextProject(lv_event_t*) { toast("Ce bouton servira au prochain projet"); }
+
+static void buildSettings() {
+  lv_obj_t* p = pages[P_SETTINGS];
+  lbl(p, "Réglages", &font_ui_18, C_INK, 14, 4);
+  lv_obj_t* v = lbl(p, "clin · v0.5", &font_ui_12, C_MUTED, 0, 0);
+  lv_obj_align(v, LV_ALIGN_TOP_RIGHT, -14, 9);
+  lv_obj_t* w = button(p, 12, 36, 144, 74, "Wi-Fi", &font_ui_14, C_CARD, C_INK, C_CYAN, onSetWifi, nullptr);
+  setWifiLbl = lv_obj_get_child(w, 0);
+  lv_obj_set_style_text_align(setWifiLbl, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_t* h = button(p, 164, 36, 144, 74, "Heure\nrégler à la main", &font_ui_14, C_CARD, C_INK, C_LINE, onSetClock, nullptr);
+  lv_obj_set_style_text_align(lv_obj_get_child(h, 0), LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_t* n = button(p, 12, 118, 296, 70, "Prochain projet (à venir)", &font_ui_14, C_BG, C_MUTED, C_LINE, onNextProject, nullptr);
+  lv_obj_set_style_border_opa(n, LV_OPA_70, 0);
 }
 
 static void onPunchCard(lv_event_t*) { showPage(P_PUNCH); }
@@ -1024,6 +1062,7 @@ void uiInit() {
   buildTrips();
   buildSetTime();
   buildWifi();
+  buildSettings();
   sntp_set_time_sync_notification_cb(onSntpSync);
 
   lv_obj_t* bar = panel(lv_scr_act(), 0, 196, 320, 44, C_BAR, C_LINE, 0);

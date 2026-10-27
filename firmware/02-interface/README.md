@@ -17,13 +17,17 @@ Pas encore de Wi-Fi, de sauvegarde des pointages, ni d'alerte alarme : ce sont l
 
 ## Heure réelle
 L'heure vient d'Internet (NTP) dès que la carte est connectée au Wi-Fi, heure de Paris.
-1. **Depuis l'écran** : touche le nom du Wi-Fi en haut à droite de l'accueil (« Choisir le Wi-Fi »),
-   choisis le réseau (box ou partage de connexion du téléphone), tape le mot de passe sur le clavier.
+1. **Depuis l'écran** : **appui long sur le compagnon** (barre du bas) → Réglages → Wi-Fi
+   (ou le nom du Wi-Fi en haut à droite de l'accueil), choisis le réseau (box ou partage de connexion du téléphone), tape le mot de passe sur le clavier.
    Trois réseaux au plus sont gardés en mémoire ; la carte passe de l'un à l'autre toute seule.
    Seuls les réseaux 2,4 GHz sont visibles.
    Facultatif : `src/secrets.h` (copie de `secrets.example.h`, jamais publié) pour préremplir des réseaux.
 2. Sans Wi-Fi : touche l'heure sur l'accueil pour la régler à la main (« heure manuelle » s'affiche).
    La carte n'a pas de pile : après une coupure de courant, l'heure manuelle est perdue.
+
+## Réglages
+Appui long (environ une demi-seconde) sur le compagnon au milieu de la barre du bas :
+Wi-Fi, heure manuelle, et un emplacement réservé pour le prochain projet.
 
 ## Démarrage
 Écran d'accueil « clin » : le compagnon ouvre les yeux, cligne, sourit, barre de chargement (environ 3 s).
