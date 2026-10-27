@@ -2,8 +2,28 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include <lvgl.h>
+#include <WiFi.h>
+#include <time.h>
 #include "touch.h"
 #include "ui.h"
+
+// Réseaux Wi-Fi : dans src/secrets.h (jamais versionné), voir src/secrets.example.h
+#if __has_include("secrets.h")
+#include "secrets.h"
+#endif
+
+struct Net { const char* ssid; const char* pass; };
+static const Net NETS[] = {
+#ifdef WIFI_SSID_1
+  {WIFI_SSID_1, WIFI_PASS_1},
+#endif
+#ifdef WIFI_SSID_2
+  {WIFI_SSID_2, WIFI_PASS_2},
+#endif
+  {nullptr, nullptr},
+};
+constexpr int NET_COUNT = sizeof(NETS) / sizeof(NETS[0]) - 1;
+constexpr const char* TZ_PARIS = "CET-1CEST,M3.5.0,M10.5.0/3";
 
 constexpr int TFT_BL_PIN = 21;
 
@@ -70,10 +90,35 @@ void setup() {
   indevDrv.read_cb = touchCb;
   lv_indev_drv_register(&indevDrv);
 
+  setenv("TZ", TZ_PARIS, 1);  // heure de Paris, été comme hiver, même sans réseau
+  tzset();
+  WiFi.mode(WIFI_STA);
   uiInit();
 }
 
+// Essaie les réseaux connus à tour de rôle, sans bloquer l'interface.
+static void wifiLoop() {
+  static uint32_t lastTry = 0;
+  static int idx = 0;
+  static bool first = true, wasUp = false;
+  if (NET_COUNT == 0) return;
+  bool up = WiFi.status() == WL_CONNECTED;
+  if (up && !wasUp) {
+    Serial.printf("Wi-Fi connecte : %s\n", WiFi.SSID().c_str());
+    configTzTime(TZ_PARIS, "pool.ntp.org", "time.google.com");
+  }
+  wasUp = up;
+  if (!up && (first || millis() - lastTry > 15000)) {
+    first = false;
+    lastTry = millis();
+    WiFi.disconnect();
+    WiFi.begin(NETS[idx].ssid, NETS[idx].pass);
+    idx = (idx + 1) % (NET_COUNT > 0 ? NET_COUNT : 1);
+  }
+}
+
 void loop() {
+  wifiLoop();
   static uint32_t last = millis();
   uint32_t now = millis();
   lv_tick_inc(now - last);

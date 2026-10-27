@@ -3,6 +3,9 @@
 #include <Arduino.h>
 #include <lvgl.h>
 #include <math.h>
+#include <time.h>
+#include <sys/time.h>
+#include <esp_sntp.h>
 #include "ui.h"
 
 LV_FONT_DECLARE(font_ui_12);
@@ -27,7 +30,7 @@ LV_FONT_DECLARE(font_num_52);
 #define C_SUN lv_color_hex(0xFFD53D)
 #define C_DARKTXT lv_color_hex(0x04111F)
 
-enum Page { P_HOME, P_PUNCH, P_FOCUS, P_VISION, P_TRIPS, P_COUNT };
+enum Page { P_HOME, P_PUNCH, P_FOCUS, P_VISION, P_TRIPS, P_SETTIME, P_COUNT };
 enum Expr { X_OPEN, X_HAPPY, X_FOCUS, X_SLEEPY, X_ALERT };
 
 static lv_obj_t* pages[P_COUNT];
@@ -181,12 +184,12 @@ static void showPage(Page p) {
     if (i == p) lv_obj_clear_flag(pages[i], LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(pages[i], LV_OBJ_FLAG_HIDDEN);
   }
-  int active = p == P_HOME || p == P_PUNCH ? 0 : p == P_FOCUS ? 1 : p == P_VISION ? 2 : 3;
+  int active = p == P_HOME || p == P_PUNCH || p == P_SETTIME ? 0 : p == P_FOCUS ? 1 : p == P_VISION ? 2 : 3;
   for (int i = 0; i < 4; i++) {
     lv_obj_set_style_text_color(tabLbl[i], i == active ? C_CYAN : C_MUTED, 0);
     lv_obj_set_style_border_width(tabBtn[i], i == active ? 2 : 0, 0);
   }
-  if (p == P_HOME || p == P_PUNCH) buddySet(X_HAPPY);
+  if (p == P_HOME || p == P_PUNCH || p == P_SETTIME) buddySet(X_HAPPY);
   else if (p == P_FOCUS) buddySet(X_FOCUS);
   else buddySet(X_OPEN);
 }
@@ -198,14 +201,136 @@ static void onTab(lv_event_t* e) {
 
 // ---------- accueil ----------
 
-static lv_obj_t *homeTime, *homePunch, *punchLast;
-static uint32_t demoBase = 8 * 3600 + 42 * 60;  // heure de démonstration, pas l'heure réelle
+static lv_obj_t *homeTime, *homeDate, *homeSrc, *homePunch, *punchLast;
+
+// ---------- heure : NTP par Wi-Fi, sinon réglage manuel ----------
+
+static const char* DAYS[7] = {"dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"};
+static const char* MONTHS[12] = {"janvier", "février", "mars", "avril", "mai", "juin",
+                                 "juillet", "août", "septembre", "octobre", "novembre", "décembre"};
+static volatile bool timeSynced = false;
+static bool timeManual = false;
+
+static void onSntpSync(struct timeval*) {
+  timeSynced = true;
+  timeManual = false;
+}
+
+static bool nowTm(struct tm& t) {
+  time_t n = time(nullptr);
+  localtime_r(&n, &t);
+  return n > 1704067200;  // après le 1er janvier 2024 : l'heure a été réglée
+}
+
+static void fmtHM(char* b, size_t n) {
+  struct tm t;
+  if (nowTm(t)) snprintf(b, n, "%02d:%02d", t.tm_hour, t.tm_min);
+  else snprintf(b, n, "--:--");
+}
 
 static void clockTick(lv_timer_t*) {
-  uint32_t s = demoBase + millis() / 1000;
-  char b[8];
-  snprintf(b, sizeof b, "%02u:%02u", (unsigned)(s / 3600 % 24), (unsigned)(s / 60 % 60));
+  char b[48];
+  fmtHM(b, sizeof b);
   lv_label_set_text(homeTime, b);
+  struct tm t;
+  if (nowTm(t)) {
+    snprintf(b, sizeof b, "%s %d %s", DAYS[t.tm_wday], t.tm_mday, MONTHS[t.tm_mon]);
+    lv_label_set_text(homeDate, b);
+    lv_label_set_text(homeSrc, timeSynced ? "" : "heure manuelle");
+  } else {
+    lv_label_set_text(homeDate, "Touche l'heure pour la régler");
+    lv_label_set_text(homeSrc, "heure non réglée");
+  }
+}
+
+static struct tm editTm;
+static lv_obj_t *stHour, *stMin, *stDate;
+
+static void setTimeRefresh() {
+  char b[48];
+  snprintf(b, sizeof b, "%02d", editTm.tm_hour);
+  lv_label_set_text(stHour, b);
+  snprintf(b, sizeof b, "%02d", editTm.tm_min);
+  lv_label_set_text(stMin, b);
+  snprintf(b, sizeof b, "%s %d %s %d", DAYS[editTm.tm_wday], editTm.tm_mday, MONTHS[editTm.tm_mon], editTm.tm_year + 1900);
+  lv_label_set_text(stDate, b);
+}
+
+static void openSetTime(lv_event_t*) {
+  if (!nowTm(editTm)) {
+    // Point de départ : la date de compilation du programme, à midi
+    static const char* mon = "JanFebMarAprMayJunJulAugSepOctNovDec";
+    char m[4] = {0};
+    int d = 1, y = 2026;
+    sscanf(__DATE__, "%3s %d %d", m, &d, &y);
+    memset(&editTm, 0, sizeof editTm);
+    const char* f = strstr(mon, m);
+    editTm.tm_mon = f ? (f - mon) / 3 : 0;
+    editTm.tm_mday = d;
+    editTm.tm_year = y - 1900;
+    editTm.tm_hour = 12;
+  }
+  editTm.tm_sec = 0;
+  editTm.tm_isdst = -1;
+  mktime(&editTm);
+  setTimeRefresh();
+  showPage(P_SETTIME);
+}
+
+static void onAdjust(lv_event_t* e) {
+  switch ((int)(intptr_t)lv_event_get_user_data(e)) {
+    case 1: editTm.tm_hour = (editTm.tm_hour + 23) % 24; break;
+    case 2: editTm.tm_hour = (editTm.tm_hour + 1) % 24; break;
+    case 3: editTm.tm_min = (editTm.tm_min + 59) % 60; break;
+    case 4: editTm.tm_min = (editTm.tm_min + 1) % 60; break;
+    case 5: editTm.tm_mday -= 1; break;
+    case 6: editTm.tm_mday += 1; break;
+  }
+  editTm.tm_isdst = -1;
+  mktime(&editTm);  // recalcule le jour de la semaine et passe d'un mois à l'autre
+  setTimeRefresh();
+}
+
+static void onSetTimeOk(lv_event_t*) {
+  editTm.tm_sec = 0;
+  editTm.tm_isdst = -1;
+  struct timeval tv = {mktime(&editTm), 0};
+  settimeofday(&tv, nullptr);
+  timeSynced = false;
+  timeManual = true;
+  clockTick(nullptr);
+  toast("Heure réglée");
+  showPage(P_HOME);
+}
+
+static void onSetTimeCancel(lv_event_t*) { showPage(P_HOME); }
+
+static lv_obj_t* adjButton(lv_obj_t* p, int x, int y, int w, int h, const char* t, int code) {
+  lv_obj_t* b = button(p, x, y, w, h, t, &font_ui_26, C_CARD, C_INK, C_LINE, onAdjust, (void*)(intptr_t)code);
+  lv_obj_add_event_cb(b, onAdjust, LV_EVENT_LONG_PRESSED_REPEAT, (void*)(intptr_t)code);
+  return b;
+}
+
+static void buildSetTime() {
+  lv_obj_t* p = pages[P_SETTIME];
+  lbl(p, "Régler l'heure", &font_ui_14, C_MUTED, 14, 2);
+  adjButton(p, 14, 24, 48, 56, "-", 1);
+  stHour = lbl(p, "12", &font_num_30, C_INK, 62, 34);
+  lv_obj_set_width(stHour, 48);
+  lv_obj_set_style_text_align(stHour, LV_TEXT_ALIGN_CENTER, 0);
+  adjButton(p, 110, 24, 48, 56, "+", 2);
+  adjButton(p, 162, 24, 48, 56, "-", 3);
+  stMin = lbl(p, "00", &font_num_30, C_INK, 210, 34);
+  lv_obj_set_width(stMin, 48);
+  lv_obj_set_style_text_align(stMin, LV_TEXT_ALIGN_CENTER, 0);
+  adjButton(p, 258, 24, 48, 56, "+", 4);
+  adjButton(p, 14, 90, 48, 48, "-", 5);
+  stDate = lbl(p, "", &font_ui_14, C_CYAN, 62, 105);
+  lv_obj_set_width(stDate, 196);
+  lv_obj_set_style_text_align(stDate, LV_TEXT_ALIGN_CENTER, 0);
+  adjButton(p, 258, 90, 48, 48, "+", 6);
+  button(p, 14, 148, 140, 42, "Annuler", &font_ui_14, C_CARD, C_INK, C_LINE, onSetTimeCancel, nullptr);
+  button(p, 166, 148, 140, 42, "Valider", &font_ui_18, C_CYAN, C_DARKTXT, C_CYAN, onSetTimeOk, nullptr);
 }
 
 static void onPunchCard(lv_event_t*) { showPage(P_PUNCH); }
@@ -223,28 +348,39 @@ static lv_obj_t* card(lv_obj_t* parent, int x, int w, const char* title, const c
 static void buildHome() {
   lv_obj_t* p = pages[P_HOME];
   lbl(p, "Bonjour, Dimitri", &font_ui_14, C_MUTED, 14, 2);
-  homeTime = lbl(p, "08:42", &font_num_52, C_INK, 10, 28);
-  lbl(p, "lundi 26 octobre", &font_ui_14, C_CYAN, 14, 84);
-  lv_obj_t* demo = lbl(p, "DÉMO", &font_ui_12, C_AMBER, 0, 0);
-  lv_obj_align(demo, LV_ALIGN_TOP_RIGHT, -12, 4);
+  homeTime = lbl(p, "--:--", &font_num_52, C_INK, 10, 28);
+  homeDate = lbl(p, "", &font_ui_14, C_CYAN, 14, 84);
+  homeSrc = lbl(p, "", &font_ui_12, C_AMBER, 0, 0);
+  lv_obj_align(homeSrc, LV_ALIGN_TOP_RIGHT, -12, 4);
+  lv_obj_t* tapTargets[2] = {homeTime, homeDate};  // toucher l'heure ou la date ouvre le réglage
+  for (lv_obj_t* o : tapTargets) {
+    lv_obj_add_flag(o, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(o, openSetTime, LV_EVENT_CLICKED, nullptr);
+  }
   lv_obj_t* c1 = card(p, 12, 146, "POINTAGE", "08:03", &font_num_20, "Arrivée", false, &homePunch);
   lv_obj_add_flag(c1, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(c1, onPunchCard, LV_EVENT_CLICKED, nullptr);
   card(p, 162, 146, "PAS", "4 210", &font_num_20, "fictif", true, nullptr);
   lv_timer_create(clockTick, 1000, nullptr);
+  clockTick(nullptr);
 }
 
 // ---------- pointage ----------
 
 static void onPunch(lv_event_t* e) {
   bool arrival = (intptr_t)lv_event_get_user_data(e) == 1;
-  uint32_t s = demoBase + millis() / 1000;
+  struct tm t;
+  if (!nowTm(t)) {
+    toast("Règle d'abord l'heure");
+    openSetTime(nullptr);
+    return;
+  }
   char b[48];
-  snprintf(b, sizeof b, "%s · %02u:%02u", arrival ? "Arrivée enregistrée" : "Départ enregistré", (unsigned)(s / 3600 % 24), (unsigned)(s / 60 % 60));
+  snprintf(b, sizeof b, "%s · %02d:%02d", arrival ? "Arrivée enregistrée" : "Départ enregistré", t.tm_hour, t.tm_min);
   toast(b);
-  snprintf(b, sizeof b, "Dernier : %s %02u:%02u", arrival ? "arrivée" : "départ", (unsigned)(s / 3600 % 24), (unsigned)(s / 60 % 60));
+  snprintf(b, sizeof b, "Dernier : %s %02d:%02d", arrival ? "arrivée" : "départ", t.tm_hour, t.tm_min);
   lv_label_set_text(punchLast, b);
-  snprintf(b, sizeof b, "%02u:%02u", (unsigned)(s / 3600 % 24), (unsigned)(s / 60 % 60));
+  snprintf(b, sizeof b, "%02d:%02d", t.tm_hour, t.tm_min);
   lv_label_set_text(homePunch, b);
 }
 
@@ -536,7 +672,7 @@ static void buildTrips() {
 // ---------- veille : le compagnon seul, quand rien ne tourne ----------
 
 constexpr uint32_t IDLE_MS = 60000;          // 1 min sans toucher l'écran
-constexpr uint32_t DEEP_MS = 5UL * 60000;    // puis il s'endort au bout de 5 min
+constexpr uint32_t DEEP_MS = 5UL * 60000;    // puis l'écran s'éteint complètement au bout de 5 min
 enum SExpr { S_OPEN, S_LEFT, S_RIGHT, S_HAPPY, S_SURPRISED, S_SLEEP };
 
 static lv_obj_t *sOv, *sEye[2], *sSmile, *sOh, *sZ, *sClock;
@@ -573,9 +709,8 @@ static void saverApply(bool blink) {
 }
 
 static void saverClock() {
-  uint32_t s = demoBase + millis() / 1000;
   char b[8];
-  snprintf(b, sizeof b, "%02u:%02u", (unsigned)(s / 3600 % 24), (unsigned)(s / 60 % 60));
+  fmtHM(b, sizeof b);
   lv_label_set_text(sClock, b);
 }
 
@@ -609,7 +744,7 @@ static void saverTick(lv_timer_t*) {
   }
   if (sExpr != S_SLEEP && now - sSince > DEEP_MS) {
     sExpr = S_SLEEP;
-    backlight(25);
+    backlight(0);  // veille complète ; un appui rallume
   }
   if (sExpr != S_SLEEP && now >= sNextExpr) {
     int r = random(100);
@@ -679,6 +814,8 @@ void uiInit() {
   buildFocus();
   buildVision();
   buildTrips();
+  buildSetTime();
+  sntp_set_time_sync_notification_cb(onSntpSync);
 
   lv_obj_t* bar = panel(lv_scr_act(), 0, 196, 320, 44, C_BAR, C_LINE, 0);
   lv_obj_set_style_border_side(bar, LV_BORDER_SIDE_TOP, 0);
