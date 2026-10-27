@@ -208,7 +208,7 @@ static void onTab(lv_event_t* e) {
 
 // ---------- accueil ----------
 
-static lv_obj_t *homeTime, *homeDate, *homeSrc, *homeWifi, *homeOptSub, *homePunch, *punchLast;
+static lv_obj_t *homeTime, *homeDate, *homeSrc, *homeWifi, *homeOptSub, *homePunch, *homePunchSub, *punchLast;
 
 // ---------- heure : NTP par Wi-Fi, sinon réglage manuel ----------
 
@@ -556,7 +556,8 @@ static void buildHome() {
     lv_obj_add_flag(o, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(o, openSetTime, LV_EVENT_CLICKED, nullptr);
   }
-  lv_obj_t* c1 = card(p, 12, 146, "POINTAGE", "08:03", &font_num_20, "Arrivée", false, &homePunch);
+  lv_obj_t* c1 = card(p, 12, 146, "POINTAGE", "--:--", &font_num_20, "Aucun", false, &homePunch);
+  homePunchSub = lv_obj_get_child(c1, 2);
   lv_obj_add_flag(c1, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(c1, onPunchCard, LV_EVENT_CLICKED, nullptr);
   lv_obj_t* c2 = card(p, 162, 146, "OPTIONS", "Réglages", &font_ui_18, "", false, nullptr);
@@ -570,14 +571,13 @@ static void buildHome() {
 
 // ---------- pointage ----------
 
-static void onPunch(lv_event_t* e) {
-  bool arrival = (intptr_t)lv_event_get_user_data(e) == 1;
+// Confirmation avant d'enregistrer : un appui de travers ne doit pas créer un faux pointage.
+static lv_obj_t *cfOv, *cfTitle, *cfTime;
+static bool cfArrival = true;
+
+static void punchRecord(bool arrival) {
   struct tm t;
-  if (!nowTm(t)) {
-    toast("Règle d'abord l'heure");
-    openSetTime(nullptr);
-    return;
-  }
+  if (!nowTm(t)) return;
   char b[48];
   snprintf(b, sizeof b, "%s · %02d:%02d", arrival ? "Arrivée enregistrée" : "Départ enregistré", t.tm_hour, t.tm_min);
   toast(b);
@@ -585,13 +585,63 @@ static void onPunch(lv_event_t* e) {
   lv_label_set_text(punchLast, b);
   snprintf(b, sizeof b, "%02d:%02d", t.tm_hour, t.tm_min);
   lv_label_set_text(homePunch, b);
+  lv_label_set_text(homePunchSub, arrival ? "Arrivée" : "Départ");
+}
+
+static void onPunch(lv_event_t* e) {
+  cfArrival = (intptr_t)lv_event_get_user_data(e) == 1;
+  struct tm t;
+  if (!nowTm(t)) {
+    toast("Règle d'abord l'heure");
+    openSetTime(nullptr);
+    return;
+  }
+  char b[8];
+  snprintf(b, sizeof b, "%02d:%02d", t.tm_hour, t.tm_min);
+  lv_label_set_text(cfTitle, cfArrival ? "Confirmer l'arrivée ?" : "Confirmer le départ ?");
+  lv_label_set_text(cfTime, b);
+  lv_obj_clear_flag(cfOv, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(cfOv);
+}
+
+static void onPunchConfirm(lv_event_t*) {
+  lv_obj_add_flag(cfOv, LV_OBJ_FLAG_HIDDEN);
+  punchRecord(cfArrival);
+}
+
+static void onPunchCancel(lv_event_t*) {
+  lv_obj_add_flag(cfOv, LV_OBJ_FLAG_HIDDEN);
+  toast("Pointage annulé");
+}
+
+static void buildPunchConfirm() {
+  cfOv = lv_obj_create(lv_scr_act());
+  lv_obj_set_pos(cfOv, 0, 0);
+  lv_obj_set_size(cfOv, 320, 240);
+  lv_obj_set_style_bg_color(cfOv, lv_color_hex(0x000000), 0);
+  lv_obj_set_style_bg_opa(cfOv, LV_OPA_70, 0);
+  lv_obj_set_style_border_width(cfOv, 0, 0);
+  lv_obj_set_style_radius(cfOv, 0, 0);
+  lv_obj_set_style_pad_all(cfOv, 0, 0);
+  noScroll(cfOv);
+  lv_obj_t* box = panel(cfOv, 20, 40, 280, 160, C_CARD, C_CYAN, 16);
+  cfTitle = lbl(box, "", &font_ui_18, C_INK, 0, 12);
+  cfTime = lbl(box, "", &font_num_30, C_CYAN, 0, 40);
+  lv_obj_t* centred[2] = {cfTitle, cfTime};
+  for (lv_obj_t* o : centred) {
+    lv_obj_set_width(o, 278);
+    lv_obj_set_style_text_align(o, LV_TEXT_ALIGN_CENTER, 0);
+  }
+  button(box, 12, 98, 120, 48, "Annuler", &font_ui_14, C_CARD2, C_INK, C_LINE, onPunchCancel, nullptr);
+  button(box, 146, 98, 120, 48, "Confirmer", &font_ui_18, C_CYAN, C_DARKTXT, C_CYAN, onPunchConfirm, nullptr);
+  lv_obj_add_flag(cfOv, LV_OBJ_FLAG_HIDDEN);
 }
 
 static void onSoon(lv_event_t*) { toast("Disponible à l'étape suivante"); }
 
 static void buildPunch() {
   lv_obj_t* p = pages[P_PUNCH];
-  punchLast = lbl(p, "Dernier : arrivée 08:03", &font_ui_14, C_MUTED, 14, 4);
+  punchLast = lbl(p, "Aucun pointage pour l'instant", &font_ui_14, C_MUTED, 14, 4);
   button(p, 12, 28, 144, 86, "ARRIVÉE", &font_ui_18, C_CYAN, C_DARKTXT, C_CYAN, onPunch, (void*)1);
   button(p, 164, 28, 144, 86, "DÉPART", &font_ui_18, C_CARD, C_INK, C_BLUE, onPunch, (void*)2);
   button(p, 12, 126, 144, 44, "Historique", &font_ui_14, C_CARD, C_INK, C_LINE, onSoon, nullptr);
@@ -960,7 +1010,8 @@ static void saverTick(lv_timer_t*) {
     return;
   }
   if (!sleeping) {
-    bool busy = fState == F_RUN || !lv_obj_has_flag(vOv, LV_OBJ_FLAG_HIDDEN) || !lv_obj_has_flag(pwOv, LV_OBJ_FLAG_HIDDEN);
+    bool busy = fState == F_RUN || !lv_obj_has_flag(vOv, LV_OBJ_FLAG_HIDDEN) || !lv_obj_has_flag(pwOv, LV_OBJ_FLAG_HIDDEN) ||
+                !lv_obj_has_flag(cfOv, LV_OBJ_FLAG_HIDDEN);
     if (!busy && lv_disp_get_inactive_time(nullptr) > IDLE_MS) saverEnter();
     return;
   }
@@ -1060,6 +1111,7 @@ void uiInit() {
   for (int i = 0; i < P_COUNT; i++) pages[i] = newPage();
   buildHome();
   buildPunch();
+  buildPunchConfirm();
   buildFocus();
   buildVision();
   buildTrips();
@@ -1091,6 +1143,7 @@ void uiInit() {
   buddyCreate(bar, 136, 4);
   lv_obj_move_foreground(vOv);  // l'écran d'exercice recouvre aussi la barre d'onglets
   lv_obj_move_foreground(pwOv);
+  lv_obj_move_foreground(cfOv);
 
   toastObj = panel(lv_scr_act(), 14, 150, 292, 34, C_INK, C_INK, 10);
   toastLbl = lbl(toastObj, "", &font_ui_14, C_DARKTXT, 0, 0);
