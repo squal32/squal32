@@ -3,10 +3,12 @@
 
 // Tactile XPT2046 sur ses propres broches (vérifié par le test 00-identification).
 constexpr int T_CLK = 25, T_MOSI = 32, T_MISO = 39, T_CS = 33;
-constexpr int PRESS_MIN = 250;
-constexpr int CAL_A_X = 20, CAL_A_Y = 20, CAL_B_X = 300, CAL_B_Y = 220;
+constexpr int PRESS_MIN = 200;
 
-struct Cal { bool swap; int ax0, ax1, ay0, ay1; bool ok; } cal = {true, 0, 0, 0, 0, false};
+// Correspondance affine écran = a*brutX + b*brutY + c, mesurée sur la carte par le diagnostic à 9 cibles.
+// Valeurs par défaut issues de ce diagnostic ; une recalibration les remplace.
+static float CX[3] = {0.003270f, 0.089104f, -28.545f};
+static float CY[3] = {0.068867f, 0.001723f, -18.402f};
 
 static uint16_t xpt(uint8_t cmd) {
   digitalWrite(T_CS, LOW);
@@ -59,13 +61,14 @@ void touchBegin() {
 
 bool touchLoadCalibration() {
   Preferences p;
-  p.begin("touch3", true);
-  cal.ok = p.getBool("ok", false);
-  cal.swap = p.getBool("swap", true);
-  cal.ax0 = p.getInt("ax0", 0); cal.ax1 = p.getInt("ax1", 0);
-  cal.ay0 = p.getInt("ay0", 0); cal.ay1 = p.getInt("ay1", 0);
+  p.begin("touch4", true);
+  bool ok = p.getBool("ok", false);
+  if (ok) {
+    p.getBytes("cx", CX, sizeof CX);
+    p.getBytes("cy", CY, sizeof CY);
+  }
   p.end();
-  return cal.ok && cal.ax0 != cal.ax1 && cal.ay0 != cal.ay1;
+  return true;  // sans calibration enregistrée, les valeurs mesurées par défaut conviennent
 }
 
 bool touchHeldAtBoot(TFT_eSPI& tft) {
@@ -91,85 +94,98 @@ static void waitRelease() {
   }
 }
 
-static void waitPoint(TFT_eSPI& tft, int sx, int sy, const char* txt, int& rx, int& ry) {
+static void measure(TFT_eSPI& tft, int sx, int sy, int n, int& rx, int& ry) {
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawCentreString(txt, 160, 110, 2);
-  tft.drawFastHLine(sx - 10, sy, 21, TFT_CYAN);
-  tft.drawFastVLine(sx, sy - 10, 21, TFT_CYAN);
-  tft.drawCircle(sx, sy, 6, TFT_CYAN);
-  waitRelease();  // le doigt doit avoir quitté la croix précédente
+  char b[40];
+  snprintf(b, sizeof b, "Touche le centre de la cible %d / 9", n);
+  tft.drawCentreString(b, 160, sy == 120 ? 160 : 112, 2);
+  tft.drawCircle(sx, sy, 10, TFT_CYAN);
+  tft.drawFastHLine(sx - 14, sy, 29, TFT_CYAN);
+  tft.drawFastVLine(sx, sy - 14, 29, TFT_CYAN);
+  waitRelease();
   int x, y;
   while (!rawRead(x, y)) delay(10);
-  delay(250);     // laisser le doigt se poser avant de mesurer
-  long sumx = 0, sumy = 0; int n = 0;
-  while (n < 12) {
-    if (rawRead(x, y)) { sumx += x; sumy += y; n++; }
-    else { n = 0; sumx = sumy = 0; }  // doigt levé : on recommence
+  delay(250);
+  long sumx = 0, sumy = 0; int k = 0;
+  while (k < 15) {
+    if (rawRead(x, y)) { sumx += x; sumy += y; k++; }
+    else { k = 0; sumx = sumy = 0; }
     delay(20);
   }
-  rx = sumx / n; ry = sumy / n;
+  rx = sumx / k; ry = sumy / k;
+  tft.fillCircle(sx, sy, 10, TFT_GREEN);
   waitRelease();
 }
 
+static double det3(double m[3][3]) {
+  return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+         m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+}
+
+static bool solve3(double m[3][3], double v[3], float out[3]) {
+  double d = det3(m);
+  if (fabs(d) < 1e-9) return false;
+  for (int c = 0; c < 3; c++) {
+    double t[3][3];
+    for (int r = 0; r < 3; r++) for (int k = 0; k < 3; k++) t[r][k] = k == c ? v[r] : m[r][k];
+    out[c] = det3(t) / d;
+  }
+  return true;
+}
+
 void touchCalibrate(TFT_eSPI& tft) {
-  // Quatre croix aux coins : l'axe brut de l'abscisse et celui de l'ordonnée sont déduits des mesures.
-  const int px[4] = {CAL_A_X, CAL_B_X, CAL_A_X, CAL_B_X};
-  const int py[4] = {CAL_A_Y, CAL_A_Y, CAL_B_Y, CAL_B_Y};
-  const char* msg[4] = {"Croix en haut a gauche", "Croix en haut a droite", "Croix en bas a gauche", "Croix en bas a droite"};
+  const int tx[9] = {30, 160, 290, 30, 160, 290, 30, 160, 290};
+  const int ty[9] = {30, 30, 30, 120, 120, 120, 210, 210, 210};
   bool good = false;
   while (!good) {
-    int rx[4], ry[4];
-    for (int i = 0; i < 4; i++) waitPoint(tft, px[i], py[i], msg[i], rx[i], ry[i]);
-    // L'abscisse écran est portée par l'axe brut qui varie le plus le long d'une même ligne horizontale.
-    int dX = abs(rx[1] - rx[0]) + abs(rx[3] - rx[2]);
-    int dY = abs(ry[1] - ry[0]) + abs(ry[3] - ry[2]);
-    bool xFromY = dY > dX;
-    const int* sx = xFromY ? ry : rx;
-    const int* sy = xFromY ? rx : ry;
-    cal.swap = xFromY;
-    cal.ax0 = (sx[0] + sx[2]) / 2; cal.ax1 = (sx[1] + sx[3]) / 2;
-    cal.ay0 = (sy[0] + sy[1]) / 2; cal.ay1 = (sy[2] + sy[3]) / 2;
-    good = abs(cal.ax1 - cal.ax0) > 800 && abs(cal.ay1 - cal.ay0) > 800;
-    Serial.printf("Calibration: swap=%d ax=%d..%d ay=%d..%d -> %s\n", cal.swap, cal.ax0, cal.ax1, cal.ay0, cal.ay1, good ? "ok" : "refusee");
-    if (!good) {
+    double m[3][3] = {{0}}, vx[3] = {0}, vy[3] = {0};
+    int rx[9], ry[9];
+    for (int i = 0; i < 9; i++) {
+      measure(tft, tx[i], ty[i], i + 1, rx[i], ry[i]);
+      double r[3] = {(double)rx[i], (double)ry[i], 1.0};
+      for (int a = 0; a < 3; a++) {
+        for (int b = 0; b < 3; b++) m[a][b] += r[a] * r[b];
+        vx[a] += r[a] * tx[i];
+        vy[a] += r[a] * ty[i];
+      }
+    }
+    float nx[3], ny[3];
+    double worst = 1e9;
+    if (solve3(m, vx, nx) && solve3(m, vy, ny)) {
+      worst = 0;
+      for (int i = 0; i < 9; i++) {
+        double ex = nx[0] * rx[i] + nx[1] * ry[i] + nx[2] - tx[i];
+        double ey = ny[0] * rx[i] + ny[1] * ry[i] + ny[2] - ty[i];
+        worst = max(worst, hypot(ex, ey));
+      }
+    }
+    good = worst < 25;  // au-delà, une cible a sans doute été mal touchée
+    Serial.printf("Calibration: pire ecart %.1f px -> %s\n", worst, good ? "ok" : "refusee");
+    if (good) {
+      memcpy(CX, nx, sizeof CX);
+      memcpy(CY, ny, sizeof CY);
+    } else {
       tft.fillScreen(TFT_BLACK);
-      tft.drawCentreString("Mesure incoherente, on recommence", 160, 110, 2);
+      tft.drawCentreString("Une cible a ete mal touchee, on recommence", 160, 110, 2);
       delay(1500);
     }
   }
-  cal.ok = true;
   Preferences p;
-  p.begin("touch3", false);
-  p.putBool("ok", true); p.putBool("swap", cal.swap);
-  p.putInt("ax0", cal.ax0); p.putInt("ax1", cal.ax1);
-  p.putInt("ay0", cal.ay0); p.putInt("ay1", cal.ay1);
+  p.begin("touch4", false);
+  p.putBool("ok", true);
+  p.putBytes("cx", CX, sizeof CX);
+  p.putBytes("cy", CY, sizeof CY);
   p.end();
-
-  // Test : un point vert suit le doigt pendant 6 secondes
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawCentreString("Test : dessine avec le doigt", 160, 100, 2);
-  for (int i = 0; i < 4; i++) {
-    tft.drawFastHLine(px[i] - 10, py[i], 21, TFT_DARKGREY);
-    tft.drawFastVLine(px[i], py[i] - 10, 21, TFT_DARKGREY);
-  }
-  uint32_t t0 = millis();
-  int16_t x, y;
-  while (millis() - t0 < 6000) {
-    if (touchRead(x, y)) tft.fillCircle(x, y, 3, TFT_GREEN);
-    delay(5);
-  }
   tft.fillScreen(TFT_BLACK);
 }
 
 bool touchRead(int16_t& x, int16_t& y) {
   int rx, ry;
   if (!rawRead(rx, ry)) return false;
-  int srcX = cal.swap ? ry : rx, srcY = cal.swap ? rx : ry;
-  long px = CAL_A_X + (long)(srcX - cal.ax0) * (CAL_B_X - CAL_A_X) / (cal.ax1 - cal.ax0);
-  long py = CAL_A_Y + (long)(srcY - cal.ay0) * (CAL_B_Y - CAL_A_Y) / (cal.ay1 - cal.ay0);
-  x = constrain(px, 0, 319);
-  y = constrain(py, 0, 239);
+  float px = CX[0] * rx + CX[1] * ry + CX[2];
+  float py = CY[0] * rx + CY[1] * ry + CY[2];
+  x = constrain((int)lroundf(px), 0, 319);
+  y = constrain((int)lroundf(py), 0, 239);
   return true;
 }
