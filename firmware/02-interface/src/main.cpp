@@ -16,7 +16,7 @@ TFT_eSPI tft;
 
 void backlight(uint8_t level) { ledcWrite(0, level); }
 static lv_disp_draw_buf_t drawBuf;
-static lv_color_t bufA[320 * 30];
+static lv_color_t* bufA = nullptr;  // alloué au démarrage : la mémoire statique de l'ESP32 est limitée
 
 static void flushCb(lv_disp_drv_t* drv, const lv_area_t* a, lv_color_t* c) {
   uint32_t w = a->x2 - a->x1 + 1, h = a->y2 - a->y1 + 1;
@@ -60,6 +60,7 @@ void setup() {
   if (!touchLoadCalibration() || touchHeldAtBoot(tft)) touchCalibrate(tft);
 
   lv_init();
+  bufA = (lv_color_t*)malloc(320 * 30 * sizeof(lv_color_t));
   lv_disp_draw_buf_init(&drawBuf, bufA, nullptr, 320 * 30);
   static lv_disp_drv_t dispDrv;
   lv_disp_drv_init(&dispDrv);
