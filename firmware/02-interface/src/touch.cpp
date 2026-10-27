@@ -17,9 +17,10 @@ static uint16_t xpt(uint8_t cmd) {
   }
   uint16_t v = 0;
   for (int i = 0; i < 16; i++) {
+    // Le XPT2046 change sa sortie sur le front descendant : on lit pendant que l'horloge est haute.
     digitalWrite(T_CLK, HIGH); delayMicroseconds(2);
-    digitalWrite(T_CLK, LOW);  delayMicroseconds(2);
     v = (v << 1) | digitalRead(T_MISO);
+    digitalWrite(T_CLK, LOW);  delayMicroseconds(2);
   }
   digitalWrite(T_CS, HIGH);
   return (v >> 3) & 0x0FFF;
