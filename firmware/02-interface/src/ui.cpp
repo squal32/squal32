@@ -444,6 +444,33 @@ static void onKeyboard(lv_event_t* e) {
   }
 }
 
+// Clavier AZERTY sur 5 rangées de 10 touches : chaque touche fait 32 px de large, tout tient dans l'écran.
+#define KB_F LV_KEYBOARD_CTRL_BTN_FLAGS
+static const char* KB_LOWER[] = {
+  "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "\n",
+  "a", "z", "e", "r", "t", "y", "u", "i", "o", "p", "\n",
+  "q", "s", "d", "f", "g", "h", "j", "k", "l", "m", "\n",
+  "ABC", "w", "x", "c", "v", "b", "n", LV_SYMBOL_BACKSPACE, "\n",
+  "1#", LV_SYMBOL_CLOSE, " ", LV_SYMBOL_OK, ""};
+static const char* KB_UPPER[] = {
+  "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "\n",
+  "A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P", "\n",
+  "Q", "S", "D", "F", "G", "H", "J", "K", "L", "M", "\n",
+  "abc", "W", "X", "C", "V", "B", "N", LV_SYMBOL_BACKSPACE, "\n",
+  "1#", LV_SYMBOL_CLOSE, " ", LV_SYMBOL_OK, ""};
+static const char* KB_SPECIAL[] = {
+  "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "\n",
+  "@", "#", "$", "%", "&", "*", "-", "+", "=", "/", "\n",
+  "!", "?", "_", ".", ",", ":", ";", "(", ")", "~", "\n",
+  "abc", "<", ">", "[", "]", "{", "}", LV_SYMBOL_BACKSPACE, "\n",
+  "ABC", LV_SYMBOL_CLOSE, " ", LV_SYMBOL_OK, ""};
+static const lv_btnmatrix_ctrl_t KB_CTRL[] = {
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  KB_F | 2, 1, 1, 1, 1, 1, 1, KB_F | 2,
+  KB_F | 2, KB_F | 2, 4, KB_F | 2};
+
 static void buildWifi() {
   lv_obj_t* p = pages[P_WIFI];
   lbl(p, "Wi-Fi", &font_ui_14, C_INK, 12, 4);
@@ -480,8 +507,15 @@ static void buildWifi() {
   lv_obj_set_style_text_color(pwText, C_INK, 0);
   lv_obj_set_style_border_color(pwText, C_CYAN, 0);
   lv_obj_t* kb = lv_keyboard_create(pwOv);
-  lv_obj_set_pos(kb, 0, 62);
-  lv_obj_set_size(kb, 320, 178);
+  lv_obj_set_pos(kb, 0, 60);
+  lv_obj_set_size(kb, 320, 180);
+  lv_obj_set_style_pad_all(kb, 2, 0);
+  lv_obj_set_style_pad_gap(kb, 3, 0);
+  lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_TEXT_LOWER, KB_LOWER, KB_CTRL);
+  lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_TEXT_UPPER, KB_UPPER, KB_CTRL);
+  lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_SPECIAL, KB_SPECIAL, KB_CTRL);
+  lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_TEXT_LOWER);
+  lv_obj_set_style_bg_color(kb, C_BLUE, LV_PART_ITEMS | LV_STATE_CHECKED);
   lv_keyboard_set_textarea(kb, pwText);
   lv_obj_set_style_bg_color(kb, C_BAR, 0);
   lv_obj_set_style_bg_color(kb, C_CARD2, LV_PART_ITEMS);
