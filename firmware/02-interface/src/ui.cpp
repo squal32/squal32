@@ -507,7 +507,7 @@ static void buildWifi() {
   lv_obj_set_style_text_color(pwText, C_INK, 0);
   lv_obj_set_style_border_color(pwText, C_CYAN, 0);
   lv_obj_t* kb = lv_keyboard_create(pwOv);
-  lv_obj_set_pos(kb, 0, 60);
+  lv_obj_align(kb, LV_ALIGN_TOP_LEFT, 0, 60);  // le clavier est créé aligné en bas : sans ceci, il dépasse de 60 px
   lv_obj_set_size(kb, 320, 180);
   lv_obj_set_style_pad_all(kb, 2, 0);
   lv_obj_set_style_pad_gap(kb, 3, 0);
