@@ -160,7 +160,21 @@ static void blinkStart(lv_timer_t*) {
 }
 
 static void openSettings();
-static void onBuddyLong(lv_event_t*) { openSettings(); }
+// Appui long mesuré ici plutôt que par LVGL : un léger tremblement du tactile ne l'annule pas.
+static void onBuddyPress(lv_event_t* e) {
+  static uint32_t start = 0;
+  static bool fired = false;
+  lv_event_code_t c = lv_event_get_code(e);
+  if (c == LV_EVENT_PRESSED) {
+    start = millis();
+    fired = false;
+    Serial.println("compagnon : appui");
+  } else if (c == LV_EVENT_PRESSING && !fired && millis() - start > 600) {
+    fired = true;
+    Serial.println("compagnon : appui long -> reglages");
+    openSettings();
+  }
+}
 
 static void buddyCreate(lv_obj_t* parent, int x, int y) {
   buddyFace = panel(parent, x, y, 48, 34, lv_color_hex(0x0E1A2B), lv_color_hex(0x1E3550), 14);
@@ -179,7 +193,9 @@ static void buddyCreate(lv_obj_t* parent, int x, int y) {
     (i == 0 ? eyeL : eyeR) = e;
   }
   lv_obj_set_style_border_color(buddyFace, C_CYAN, LV_STATE_PRESSED);
-  lv_obj_add_event_cb(buddyFace, onBuddyLong, LV_EVENT_LONG_PRESSED, nullptr);
+  lv_obj_set_ext_click_area(buddyFace, 12);  // zone tactile plus large que le dessin
+  lv_obj_add_event_cb(buddyFace, onBuddyPress, LV_EVENT_PRESSED, nullptr);
+  lv_obj_add_event_cb(buddyFace, onBuddyPress, LV_EVENT_PRESSING, nullptr);
   buddyApply();
   lv_timer_create(blinkStart, 4200, nullptr);
 }
