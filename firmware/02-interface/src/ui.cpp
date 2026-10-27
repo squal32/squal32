@@ -210,9 +210,9 @@ static void clockTick(lv_timer_t*) {
 
 static void onPunchCard(lv_event_t*) { showPage(P_PUNCH); }
 
-static lv_obj_t* card(lv_obj_t* parent, int x, const char* title, const char* value, const lv_font_t* vfont,
+static lv_obj_t* card(lv_obj_t* parent, int x, int w, const char* title, const char* value, const lv_font_t* vfont,
                       const char* sub, bool fake, lv_obj_t** valueOut) {
-  lv_obj_t* c = panel(parent, x, 114, 94, 74, C_CARD, C_LINE, 12);
+  lv_obj_t* c = panel(parent, x, 112, w, 76, C_CARD, C_LINE, 12);
   lbl(c, title, &font_ui_12, C_MUTED, 8, 6);
   lv_obj_t* v = lbl(c, value, vfont, C_INK, 8, 24);
   lbl(c, sub, &font_ui_12, fake ? C_AMBER : C_MUTED, 8, 52);
@@ -222,15 +222,14 @@ static lv_obj_t* card(lv_obj_t* parent, int x, const char* title, const char* va
 
 static void buildHome() {
   lv_obj_t* p = pages[P_HOME];
-  lbl(p, "Bonjour, Dimitri", &font_ui_14, C_MUTED, 14, 4);
-  homeTime = lbl(p, "08:42", &font_num_52, C_INK, 10, 20);
+  lbl(p, "Bonjour, Dimitri", &font_ui_14, C_MUTED, 14, 2);
+  homeTime = lbl(p, "08:42", &font_num_52, C_INK, 10, 28);
   lbl(p, "lundi 26 octobre", &font_ui_14, C_CYAN, 14, 84);
-  lbl(p, "DÉMO", &font_ui_12, C_AMBER, 272, 6);
-  lv_obj_t* c1 = card(p, 12, "POINTAGE", "08:03", &font_num_20, "Arrivée", false, &homePunch);
+  lbl(p, "DÉMO", &font_ui_12, C_AMBER, 272, 4);
+  lv_obj_t* c1 = card(p, 12, 146, "POINTAGE", "08:03", &font_num_20, "Arrivée", false, &homePunch);
   lv_obj_add_flag(c1, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(c1, onPunchCard, LV_EVENT_CLICKED, nullptr);
-  card(p, 113, "ALARME", "Armée", &font_ui_18, "fictif", true, nullptr);
-  card(p, 214, "PAS", "4 210", &font_num_20, "fictif", true, nullptr);
+  card(p, 162, 146, "PAS", "4 210", &font_num_20, "fictif", true, nullptr);
   lv_timer_create(clockTick, 1000, nullptr);
 }
 
@@ -514,9 +513,9 @@ static void buildTrips() {
     char b[8];
     snprintf(b, sizeof b, "%d", TRIPS[i].minutes);
     lv_obj_t* m = lbl(r, b, &font_num_30, isBest ? C_CYAN : C_INK, 0, 2);
-    lv_obj_align(m, LV_ALIGN_TOP_RIGHT, -44, 4);
+    lv_obj_align(m, LV_ALIGN_TOP_RIGHT, -44, 10);
     lv_obj_t* u = lbl(r, "min", &font_ui_12, C_MUTED, 0, 0);
-    lv_obj_align(u, LV_ALIGN_TOP_RIGHT, -12, 22);
+    lv_obj_align(u, LV_ALIGN_TOP_RIGHT, -12, 24);
     lv_obj_t* bar = lv_bar_create(r);
     lv_obj_set_size(bar, 276, 4);
     lv_obj_set_pos(bar, 10, 42);
