@@ -41,7 +41,7 @@ void touchBegin() {
 
 bool touchLoadCalibration() {
   Preferences p;
-  p.begin("touch", true);
+  p.begin("touch2", true);
   cal.ok = p.getBool("ok", false);
   cal.swap = p.getBool("swap", true);
   cal.ax0 = p.getInt("ax0", 0); cal.ax1 = p.getInt("ax1", 0);
@@ -64,6 +64,15 @@ bool touchHeldAtBoot(TFT_eSPI& tft) {
   return false;
 }
 
+static void waitRelease() {
+  int x, y;
+  uint32_t lastPress = millis();
+  while (millis() - lastPress < 300) {
+    if (rawRead(x, y)) lastPress = millis();
+    delay(10);
+  }
+}
+
 static void waitPoint(TFT_eSPI& tft, int sx, int sy, const char* txt, int& rx, int& ry) {
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -71,13 +80,18 @@ static void waitPoint(TFT_eSPI& tft, int sx, int sy, const char* txt, int& rx, i
   tft.drawFastHLine(sx - 10, sy, 21, TFT_CYAN);
   tft.drawFastVLine(sx, sy - 10, 21, TFT_CYAN);
   tft.drawCircle(sx, sy, 6, TFT_CYAN);
+  waitRelease();  // le doigt doit avoir quitté la croix précédente
   int x, y;
   while (!rawRead(x, y)) delay(10);
+  delay(250);     // laisser le doigt se poser avant de mesurer
   long sumx = 0, sumy = 0; int n = 0;
-  while (n < 12) { if (rawRead(x, y)) { sumx += x; sumy += y; n++; } delay(20); }
+  while (n < 12) {
+    if (rawRead(x, y)) { sumx += x; sumy += y; n++; }
+    else { n = 0; sumx = sumy = 0; }  // doigt levé : on recommence
+    delay(20);
+  }
   rx = sumx / n; ry = sumy / n;
-  uint32_t released = 0;
-  while (millis() - released < 200) { if (rawRead(x, y)) released = millis(); delay(10); }
+  waitRelease();
 }
 
 void touchCalibrate(TFT_eSPI& tft) {
@@ -91,7 +105,7 @@ void touchCalibrate(TFT_eSPI& tft) {
   int sy0 = xFromY ? ax : ay, sy1 = xFromY ? bx : by;
   cal.ax0 = sx0; cal.ax1 = sx1; cal.ay0 = sy0; cal.ay1 = sy1; cal.ok = true;
   Preferences p;
-  p.begin("touch", false);
+  p.begin("touch2", false);
   p.putBool("ok", true); p.putBool("swap", cal.swap);
   p.putInt("ax0", cal.ax0); p.putInt("ax1", cal.ax1);
   p.putInt("ay0", cal.ay0); p.putInt("ay1", cal.ay1);

@@ -514,9 +514,9 @@ static void buildTrips() {
     char b[8];
     snprintf(b, sizeof b, "%d", TRIPS[i].minutes);
     lv_obj_t* m = lbl(r, b, &font_num_30, isBest ? C_CYAN : C_INK, 0, 2);
-    lv_obj_align(m, LV_ALIGN_TOP_RIGHT, -44, 0);
+    lv_obj_align(m, LV_ALIGN_TOP_RIGHT, -44, 4);
     lv_obj_t* u = lbl(r, "min", &font_ui_12, C_MUTED, 0, 0);
-    lv_obj_align(u, LV_ALIGN_TOP_RIGHT, -12, 18);
+    lv_obj_align(u, LV_ALIGN_TOP_RIGHT, -12, 22);
     lv_obj_t* bar = lv_bar_create(r);
     lv_obj_set_size(bar, 276, 4);
     lv_obj_set_pos(bar, 10, 42);
