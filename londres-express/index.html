@@ -159,7 +159,12 @@ textarea{
 .sub.ex{border-style:dashed}
 .sub.me{background:var(--soft);border-color:var(--accent)}
 .sub.me .sfr{color:var(--accent)}
-#replyBtn{width:100%;min-height:60px;font-size:18px}
+.duo{display:grid;gap:10px}
+.duo .btn{width:100%;min-height:66px;font-size:18px}
+#replyBtn:not(.live){background:var(--soft);border-color:var(--accent);color:var(--accent)}
+.ears{font-size:15px}
+.ears summary{cursor:pointer;font-weight:700;color:var(--muted);min-height:40px;display:flex;align-items:center}
+.ears[open]{display:grid;gap:8px}
 .sub .tag{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 
 .toast{
@@ -176,15 +181,18 @@ textarea{
 
 <main id="main">
   <section id="p-live" class="panel" aria-label="Sous-titres en direct">
-    <p class="lead">La personne parle anglais, tu lis en français au fur et à mesure. Pose le téléphone près d'elle et laisse tourner.</p>
-    <div class="livebar">
-      <button type="button" id="liveBtn" class="btn primary go" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span id="liveBtnTx">Démarrer</span></button>
-      <button type="button" id="liveClear" class="btn">Effacer</button>
+    <p class="lead">Conversation sans écouteurs. Quand la personne parle, tu lis en français. Quand c'est ton tour, le téléphone dit ta phrase en anglais et l'affiche en grand pour elle.</p>
+    <div class="duo">
+      <button type="button" id="liveBtn" class="btn primary" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span id="liveBtnTx">Elle parle (anglais)</span></button>
+      <button type="button" id="replyBtn" class="btn" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span id="replyTx">Je parle (français)</span></button>
     </div>
-    <button type="button" id="replyBtn" class="btn" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span id="replyTx">Je réponds en français</span></button>
-    <p class="tip">Appuie, parle en français, puis appuie sur « Terminé ». Le téléphone dit ta phrase en anglais et l'affiche en grand. Retire tes écouteurs avant, sinon c'est toi qui l'entends.</p>
-    <button type="button" id="liveVoice" class="btn" aria-pressed="false"><span id="liveVoiceTx">🎧 Entendre en français : non</span></button>
-    <p class="tip">Avec tes écouteurs, active « Entendre en français » : chaque phrase traduite est lue à voix haute. Sans écouteurs, laisse-le désactivé, sinon le micro capte la voix du téléphone.</p>
+    <p class="tip">Un seul bouton allumé à la fois : le micro n'écoute jamais la voix du téléphone.</p>
+    <details class="ears">
+      <summary>Options</summary>
+      <button type="button" id="liveVoice" class="btn" aria-pressed="false"><span id="liveVoiceTx">🎧 Entendre en français : non</span></button>
+      <p class="tip">Seulement avec des écouteurs : chaque phrase traduite est lue en français. Sans écouteurs, laisse sur « non ».</p>
+      <button type="button" id="liveClear" class="btn">Effacer la conversation</button>
+    </details>
     <p class="status" id="liveStatus" role="status" aria-live="polite"></p>
     <p class="notice" id="liveHelp" hidden>Le micro ne marche pas dans cette fenêtre. Ouvre cette page dans Chrome sur ordinateur ou sur Android. Sinon, dans Google Traduction, choisis Anglais → Français puis le mode « Transcrire ».</p>
     <p class="partial" id="livePartial" hidden></p>
@@ -276,6 +284,7 @@ textarea{
   <p id="showPhon" class="show-phon"></p>
   <div class="show-acts">
     <button type="button" id="showSay" class="btn inv">Écouter</button>
+    <button type="button" id="showListen" class="btn inv" hidden>Écouter sa réponse</button>
     <button type="button" id="showClose" class="btn inv">Fermer</button>
   </div>
 </div>
@@ -475,7 +484,8 @@ function speak(text, slow){
 
 /* ---------- Écran « à montrer » ---------- */
 var showCur = "", wake = null;
-function showBig(text, phon){
+function showBig(text, phon, reply){
+  $("#showListen").hidden = !reply;
   showCur = clean(text);
   $("#showText").textContent = text;
   $("#showPhon").textContent = phon || "";
@@ -489,6 +499,11 @@ function closeShow(){
   try{ if(wake){ wake.release(); wake = null; } }catch(e){}
 }
 $("#showClose").addEventListener("click", closeShow);
+$("#showListen").addEventListener("click", function(){
+  try{ synth && synth.cancel(); }catch(e){}
+  closeShow();
+  if(!live.on) $("#liveBtn").click();
+});
 $("#showSay").addEventListener("click", function(){ speak(showCur); });
 
 /* ---------- Micro direct (peut être bloqué dans cette fenêtre) ---------- */
@@ -878,7 +893,7 @@ function liveUI(){
   b.classList.toggle("live", live.on);
   b.classList.toggle("primary", !live.on);
   b.setAttribute("aria-pressed", String(live.on));
-  $("#liveBtnTx").textContent = live.on ? "Arrêter" : "Démarrer";
+  $("#liveBtnTx").textContent = live.on ? "Arrêter l'écoute" : "Elle parle (anglais)";
 }
 function setPartial(t){
   var p = $("#livePartial");
@@ -996,8 +1011,8 @@ function startWebSR(){
 }
 var DICT_END = {
   viewer_stopped: "Sous-titres arrêtés.",
-  hidden: "Arrêté car la page a été quittée. Appuie sur Démarrer pour reprendre.",
-  time_limit: "Arrêt automatique après 60 minutes. Appuie sur Démarrer pour continuer.",
+  hidden: "Arrêté car la page a été quittée. Appuie sur « Elle parle » pour reprendre.",
+  time_limit: "Arrêt automatique après 60 minutes. Appuie sur « Elle parle » pour continuer.",
   not_granted: "Le micro est refusé pour cette page.",
   rate_limited: "Trop de demandes. Réessaie dans un instant.",
   upstream_error: "Le micro ou la reconnaissance a eu un souci. Réessaie."
@@ -1028,7 +1043,9 @@ $("#liveBtn").addEventListener("click", function(){
     else liveOff("Sous-titres arrêtés.");
     return;
   }
+  if(talk.on){ liveStatus("Appuie d'abord sur « Terminé : dire en anglais »."); return; }
   stopListen();
+  try{ synth && synth.cancel(); }catch(e){}
   live.on = true; live.fatal = false;
   $("#liveHelp").hidden = true;
   liveUI(); keepAwake(true);
@@ -1039,7 +1056,7 @@ $("#liveBtn").addEventListener("click", function(){
       var c = err && err.code;
       if(c === "unavailable"){ live.mode = "web"; startWebSR(); }
       else if(c === "not_granted"){ liveOff("Le micro est refusé pour cette page.", true); }
-      else if(c === "dismissed"){ liveOff("Appuie à nouveau sur Démarrer et autorise le micro."); }
+      else if(c === "dismissed"){ liveOff("Appuie à nouveau sur « Elle parle » et autorise le micro."); }
       else if(c !== "stopped"){ liveOff(DICT_END[c] || DICT_END.upstream_error); }
     });
   }else{
@@ -1123,9 +1140,9 @@ async function finishTalk(reason){
     if(!r || typeof r.en !== "string") throw {code: "invalid_json"};
     en.textContent = r.en;
     try{ synth && synth.cancel(); }catch(e){}
-    showBig(r.en, r.phon || "");
+    showBig(r.en, r.phon || "", true);
     speak(clean(r.en));
-    liveStatus("Pour réécouter la personne, appuie sur Démarrer.");
+    liveStatus("Pour écouter sa réponse, appuie sur « Elle parle ».");
   }catch(e){ en.textContent = errMsg(e); liveStatus(""); }
   finally{ box.classList.remove("wait"); }
 }
