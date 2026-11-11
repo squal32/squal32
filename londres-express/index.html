@@ -178,6 +178,8 @@ textarea{
       <button type="button" id="liveBtn" class="btn primary go" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span id="liveBtnTx">Démarrer</span></button>
       <button type="button" id="liveClear" class="btn">Effacer</button>
     </div>
+    <button type="button" id="liveVoice" class="btn" aria-pressed="false"><span id="liveVoiceTx">🎧 Entendre en français : non</span></button>
+    <p class="tip">Avec tes écouteurs, active « Entendre en français » : chaque phrase traduite est lue à voix haute. Sans écouteurs, laisse-le désactivé, sinon le micro capte la voix du téléphone.</p>
     <p class="status" id="liveStatus" role="status" aria-live="polite"></p>
     <p class="notice" id="liveHelp" hidden>Le micro ne marche pas dans cette fenêtre. Ouvre cette page dans Chrome sur ordinateur ou sur Android. Sinon, dans Google Traduction, choisis Anglais → Français puis le mode « Transcrire ».</p>
     <p class="partial" id="livePartial" hidden></p>
@@ -949,6 +951,7 @@ async function pump(){
     }});
     it.fr.textContent = (r && r.text ? r.text : it.fr.textContent).trim();
     live.ctx.push(it.text); if(live.ctx.length > 3) live.ctx.shift();
+    if(live.voice) speakFr(it.fr.textContent);
   }catch(e){
     it.fr.textContent = errMsg(e);
     if(e && e.code === "rate_limited"){ await new Promise(function(res){ setTimeout(res, 3000); }); }
@@ -1034,7 +1037,41 @@ $("#liveBtn").addEventListener("click", function(){
     startWebSR();
   }
 });
+function frVoice(){
+  var i;
+  for(i = 0; i < voices.length; i++){ if(/^fr[-_]FR$/i.test(voices[i].lang)) return voices[i]; }
+  for(i = 0; i < voices.length; i++){ if(/^fr/i.test(voices[i].lang)) return voices[i]; }
+  return null;
+}
+function speakFr(text){
+  if(!synth || !text) return;
+  try{
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = "fr-FR";
+    var v = frVoice(); if(v) u.voice = v;
+    u.rate = 1.1;
+    synth.speak(u);
+  }catch(e){}
+}
+live.voice = false;
+try{ live.voice = localStorage.getItem("lx_voice") === "1"; }catch(e){}
+function voiceUI(){
+  var b = $("#liveVoice");
+  b.setAttribute("aria-pressed", String(live.voice));
+  b.classList.toggle("primary", live.voice);
+  $("#liveVoiceTx").textContent = "🎧 Entendre en français : " + (live.voice ? "oui" : "non");
+}
+voiceUI();
+$("#liveVoice").addEventListener("click", function(){
+  if(!synth){ toast("La lecture vocale n'est pas disponible sur cet appareil."); return; }
+  live.voice = !live.voice;
+  try{ localStorage.setItem("lx_voice", live.voice ? "1" : "0"); }catch(e){}
+  voiceUI();
+  try{ synth.cancel(); }catch(e){}
+  if(live.voice) speakFr("Lecture en français activée.");
+});
 $("#liveClear").addEventListener("click", function(){
+  try{ synth && synth.cancel(); }catch(e){}
   $("#liveFeed").textContent = "";
   live.ctx = [];
   setPartial("");
