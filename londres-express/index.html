@@ -1,0 +1,1067 @@
+
+<title>Londres Express</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap">
+<style>
+/* Layout : application plein écran. En-tête fin souligné comme un panneau de gare, trois panneaux (comprendre, parler, apprendre) et barre d'onglets en bas. */
+:root{
+  --bg:#EDF0F3; --surface:#FFFFFF; --ink:#0E1B2C; --muted:#566577; --line:#D3D9E0; --soft:#E1E8F1;
+  --accent:#0B3E8F; --on-accent:#FFFFFF;
+  --signal:#C8102E; --on-signal:#FFFFFF;
+  --good:#17794A; --on-good:#FFFFFF;
+  --display:"Bricolage Grotesque","Arial Narrow",system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B121C; --surface:#131D2B; --ink:#E8EDF3; --muted:#9AA7B6; --line:#26364A; --soft:#1A2738;
+    --accent:#7FAAFF; --on-accent:#06142B;
+    --signal:#FF7A88; --on-signal:#2A0A10;
+    --good:#5CCB93; --on-good:#06231A;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B121C; --surface:#131D2B; --ink:#E8EDF3; --muted:#9AA7B6; --line:#26364A; --soft:#1A2738;
+  --accent:#7FAAFF; --on-accent:#06142B;
+  --signal:#FF7A88; --on-signal:#2A0A10;
+  --good:#5CCB93; --on-good:#06231A;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  display:flex; flex-direction:column;
+  background:var(--bg); color:var(--ink);
+  font:400 17px/1.45 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  -webkit-text-size-adjust:100%;
+}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-block:10px 9px;border-bottom:2px solid var(--ink);flex:none}
+.top h1{font-size:22px;font-weight:800;letter-spacing:-.01em}
+.top .dir{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+main{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-block:16px 20px}
+.panel{display:grid;gap:16px;align-content:start;width:100%;max-width:640px;margin-inline:auto}
+.panel>*,.tutor>*,.out>*{min-width:0}
+.out,.tutor,.chat{display:grid;gap:16px}
+.chat{gap:12px}
+.h2{font-size:20px;font-weight:800;letter-spacing:-.005em}
+.lead{margin:0;color:var(--muted);font-size:16px}
+.tip{margin:0;font-size:14px;color:var(--muted)}
+.notice{margin:0;padding:10px 12px;border:1.5px dashed var(--signal);border-radius:10px;font-size:15px}
+
+.field{display:grid;gap:10px}
+.lab{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+textarea{
+  width:100%;min-height:84px;resize:vertical;padding:12px 14px;
+  font:400 19px/1.35 var(--body);color:var(--ink);background:var(--surface);
+  border:1.5px solid var(--line);border-radius:10px;
+}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row.between{justify-content:space-between;align-items:center}
+.grow{flex:1 1 150px}
+.status{min-height:1.4em;margin:0;font-size:15px;color:var(--muted)}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:48px;padding:0 18px;border-radius:10px;
+  background:var(--surface);color:var(--ink);border:1.5px solid var(--line);
+  font-weight:700;font-size:16px;cursor:pointer;
+}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.small{min-height:40px;padding:0 12px;font-size:15px}
+.btn.live{background:var(--signal);color:var(--on-signal);border-color:var(--signal)}
+.btn.inv{background:transparent;color:inherit;border-color:currentColor}
+.btn:disabled{opacity:.55;cursor:default}
+.icon{
+  flex:none;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:50%;background:var(--surface);color:var(--ink);border:1.5px solid var(--line);cursor:pointer;padding:0;
+}
+.icon[aria-pressed="true"]{background:var(--good);color:var(--on-good);border-color:var(--good)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:10px}
+.kicker{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.big{font:800 28px/1.15 var(--display);text-wrap:balance;overflow-wrap:anywhere}
+.big.en{font-size:32px}
+.phon{font-style:italic;font-size:19px;color:var(--accent);overflow-wrap:anywhere}
+.phon.sm{font-size:16px}
+.fr{color:var(--muted);font-size:15px;overflow-wrap:anywhere}
+.heardraw{font-size:14px;color:var(--muted);overflow-wrap:anywhere}
+
+.list{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:2px 14px}
+.ph{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.list>.ph:first-child{border-top:0}
+.ph .tx{display:grid;gap:2px;min-width:0}
+.ph .en{font-weight:700;font-size:18px;overflow-wrap:anywhere}
+.acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+
+.quick-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.quick{
+  display:grid;gap:2px;align-content:center;text-align:left;min-height:68px;padding:10px 12px;
+  background:var(--surface);color:var(--ink);border:1.5px solid var(--line);border-radius:12px;cursor:pointer;
+}
+.quick .qfr{font-weight:700;font-size:16px;line-height:1.25}
+.quick .qen{font-size:14px;font-style:italic;color:var(--accent);line-height:1.25}
+
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.chip{flex:none;min-height:40px;padding:0 14px;border-radius:999px;background:var(--surface);color:var(--ink);border:1.5px solid var(--line);font-weight:700;font-size:15px;white-space:nowrap;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.msg{max-width:94%;display:grid;gap:8px;padding:12px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.msg.me{justify-self:end;background:var(--soft)}
+.msg .en{font-weight:700;font-size:19px;overflow-wrap:anywhere}
+.corr{padding:10px 12px;border:1.5px dashed var(--signal);border-radius:10px;font-size:16px;overflow-wrap:anywhere}
+.corr b{color:var(--signal)}
+.try{display:grid;gap:4px;padding-top:8px;border-top:1px solid var(--line)}
+
+.tabs{flex:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:2px solid var(--ink);background:var(--bg)}
+.tabs button{
+  display:grid;gap:1px;justify-items:center;align-content:center;min-height:58px;padding:6px 4px;
+  background:transparent;border:0;border-top:4px solid transparent;margin-top:-2px;color:var(--muted);cursor:pointer;
+}
+.tabs .tl{font:800 16px/1.1 var(--display)}
+.tabs .ts{font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.tabs button[aria-selected="true"]{color:var(--accent);border-top-color:var(--accent)}
+
+.show{
+  position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:center;gap:18px;
+  background:var(--accent);color:var(--on-accent);
+  padding:max(20px,env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) max(20px,env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));
+}
+.show-kicker{margin:0;font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.85}
+.show-text{margin:0;font:800 clamp(34px,11vw,60px)/1.08 var(--display);text-wrap:balance;overflow-wrap:anywhere}
+.show-phon{margin:0;font-style:italic;font-size:clamp(20px,5.5vw,28px);opacity:.92;overflow-wrap:anywhere}
+.show-acts{display:flex;gap:10px;flex-wrap:wrap}
+.show-acts .btn{flex:1 1 140px}
+
+/* Sous-titres en direct */
+.livebar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.livebar .btn.go{flex:1 1 220px;min-height:60px;font-size:18px}
+.dot{width:10px;height:10px;border-radius:50%;background:currentColor;flex:none}
+.btn.live .dot{animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion: reduce){.btn.live .dot{animation:none}}
+.feed{display:grid;gap:10px}
+.partial{margin:0;padding:12px 14px;border:1.5px dashed var(--line);border-radius:12px;font-size:17px;font-style:italic;color:var(--muted);overflow-wrap:anywhere}
+.sub{display:grid;gap:4px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.sub .sfr{font:700 clamp(22px,6.4vw,30px)/1.22 var(--body);overflow-wrap:anywhere}
+.sub .sen{font-size:15px;color:var(--muted);overflow-wrap:anywhere}
+.sub.old .sfr{font-size:19px;font-weight:400}
+.sub.wait .sfr{color:var(--muted)}
+.sub.ex{border-style:dashed}
+.sub .tag{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%);z-index:30;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 82px);max-width:calc(100% - 32px);
+  padding:10px 14px;border-radius:10px;background:var(--ink);color:var(--bg);font-size:15px;text-align:center;
+}
+</style>
+
+<header class="top">
+  <h1>Londres Express</h1>
+  <span class="dir">EN ⇄ FR</span>
+</header>
+
+<main id="main">
+  <section id="p-live" class="panel" aria-label="Sous-titres en direct">
+    <p class="lead">La personne parle anglais, tu lis en français au fur et à mesure. Pose le téléphone près d'elle et laisse tourner.</p>
+    <div class="livebar">
+      <button type="button" id="liveBtn" class="btn primary go" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span id="liveBtnTx">Démarrer</span></button>
+      <button type="button" id="liveClear" class="btn">Effacer</button>
+    </div>
+    <p class="status" id="liveStatus" role="status" aria-live="polite"></p>
+    <p class="notice" id="liveHelp" hidden>Le micro ne marche pas dans cette fenêtre. Ouvre cette page dans Chrome sur ordinateur ou sur Android. Sinon, dans Google Traduction, choisis Anglais → Français puis le mode « Transcrire ».</p>
+    <p class="partial" id="livePartial" hidden></p>
+    <div class="feed" id="liveFeed" aria-live="polite">
+      <div class="sub ex" id="liveExample">
+        <span class="tag">Exemple</span>
+        <div class="sfr">Prochain arrêt : Westminster. Changez ici pour la ligne Jubilee.</div>
+        <div class="sen">Next stop: Westminster. Change here for the Jubilee line.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="p-hear" class="panel" aria-label="Comprendre">
+    <p class="lead">Quelqu'un te parle en anglais ? Dicte ce que tu entends ou écris-le. Je le traduis et je te propose quoi répondre.</p>
+    <p class="notice" id="noai" hidden>L'IA n'est pas disponible dans cette fenêtre. Les phrases toutes faites des onglets Parler et Apprendre fonctionnent quand même.</p>
+    <div class="field">
+      <label class="lab" for="heard">Ce que tu as entendu (anglais)</label>
+      <textarea id="heard" rows="3" lang="en-GB" spellcheck="false" placeholder="Ex. : Card or cash?"></textarea>
+      <div class="row">
+        <button type="button" id="heardMic" class="btn" aria-pressed="false"></button>
+        <button type="button" id="heardGo" class="btn primary grow">Traduire en français</button>
+      </div>
+      <p class="status" id="heardStatus" role="status" aria-live="polite"></p>
+      <p class="tip">Astuce : touche le micro de ton clavier pour dicter. Passe le clavier en anglais pour que les mots soient bien écrits.</p>
+    </div>
+    <div id="heardOut" class="out" aria-live="polite"></div>
+    <h2 class="h2">Ce que tu vas souvent entendre</h2>
+    <div class="list" id="heardList"></div>
+  </section>
+
+  <section id="p-say" class="panel" aria-label="Parler" hidden>
+    <p class="lead">Écris ou dicte ce que tu veux dire en français. Tu obtiens la phrase en anglais, comment la lire, et tu peux la faire dire par le téléphone.</p>
+    <div class="field">
+      <label class="lab" for="say">Ce que tu veux dire (français)</label>
+      <textarea id="say" rows="3" lang="fr" placeholder="Ex. : Je cherche une pharmacie, c'est loin ?"></textarea>
+      <div class="row">
+        <button type="button" id="sayMic" class="btn" aria-pressed="false"></button>
+        <button type="button" id="sayGo" class="btn primary grow">Traduire en anglais</button>
+      </div>
+      <p class="status" id="sayStatus" role="status" aria-live="polite"></p>
+    </div>
+    <div id="sayOut" class="out" aria-live="polite"></div>
+    <h2 class="h2">Phrases prêtes</h2>
+    <p class="tip">Touche une phrase : elle s'affiche en grand pour la montrer, et elle est lue à voix haute.</p>
+    <div class="quick-grid" id="quick"></div>
+  </section>
+
+  <section id="p-learn" class="panel" aria-label="Apprendre" hidden>
+    <p class="lead">Quelques minutes par jour. Écoute avec le haut-parleur, répète à voix haute, coche ce que tu sais.</p>
+    <div class="chips" id="learnChips" role="group" aria-label="Thèmes"></div>
+    <div id="learnBody" class="out"></div>
+    <div id="tutor" class="tutor" hidden>
+      <div id="scenBox" class="card">
+        <h2 class="h2">Choisis une scène</h2>
+        <p class="fr">Je joue la personne en face de toi, en anglais très simple. Tu réponds, je te corrige.</p>
+        <div class="quick-grid" id="scenGrid"></div>
+        <p class="status" id="scenStatus" role="status" aria-live="polite"></p>
+      </div>
+      <div id="chatBox" class="tutor" hidden>
+        <div class="row between">
+          <strong id="scenName"></strong>
+          <button type="button" id="scenReset" class="btn small">Autre scène</button>
+        </div>
+        <div class="chat" id="chat" aria-live="polite"></div>
+        <form id="chatForm" class="field">
+          <label class="lab" for="chatIn">Ta réponse (anglais, ou français si tu bloques)</label>
+          <textarea id="chatIn" rows="2" spellcheck="false"></textarea>
+          <div class="row">
+            <button type="button" id="chatMic" class="btn" aria-pressed="false"></button>
+            <button type="submit" id="chatGo" class="btn primary grow">Envoyer</button>
+          </div>
+          <p class="status" id="chatStatus" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs" role="tablist" aria-label="Sections">
+  <button type="button" role="tab" id="t-live" aria-selected="false"><span class="tl">Direct</span><span class="ts">En live</span></button>
+  <button type="button" role="tab" id="t-hear" aria-selected="false"><span class="tl">Comprendre</span><span class="ts">EN → FR</span></button>
+  <button type="button" role="tab" id="t-say" aria-selected="false"><span class="tl">Parler</span><span class="ts">FR → EN</span></button>
+  <button type="button" role="tab" id="t-learn" aria-selected="false"><span class="tl">Apprendre</span><span class="ts">Les bases</span></button>
+</nav>
+
+<div id="show" class="show" role="dialog" aria-modal="true" aria-label="Phrase en grand" hidden>
+  <p class="show-kicker">À montrer</p>
+  <p id="showText" class="show-text"></p>
+  <p id="showPhon" class="show-phon"></p>
+  <div class="show-acts">
+    <button type="button" id="showSay" class="btn inv">Écouter</button>
+    <button type="button" id="showClose" class="btn inv">Fermer</button>
+  </div>
+</div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+(function(){
+"use strict";
+document.documentElement.lang = "fr";
+
+/* ---------- Données : phrases [anglais, prononciation, français] ---------- */
+var LIB = [
+  {id:"bases", name:"Bases", items:[
+    ["Hello", "hé-LO", "Bonjour, salut"],
+    ["Good morning", "goud MOR-nigne", "Bonjour (le matin)"],
+    ["Please", "pliz", "S'il vous plaît"],
+    ["Thank you", "SANK-iou", "Merci (th : langue entre les dents)"],
+    ["Sorry", "SO-ri", "Désolé, pardon"],
+    ["Excuse me", "ik-SKIOUZ mi", "Excusez-moi (pour passer ou interpeller)"],
+    ["Yes / No", "yèss / nô", "Oui / Non"],
+    ["I don't speak English", "aï dônt spik IN-glich", "Je ne parle pas anglais"],
+    ["Do you speak French?", "dou iou spik FRÈNTCH", "Parlez-vous français ?"],
+    ["Slowly, please", "SLÔ-li, pliz", "Lentement, s'il vous plaît"],
+    ["Can you repeat that?", "kan iou ri-PIT zat", "Pouvez-vous répéter ?"],
+    ["I don't understand", "aï dônt on-der-STAND", "Je ne comprends pas"],
+    ["Can you write it down?", "kan iou raït it DAOUN", "Pouvez-vous l'écrire ?"],
+    ["Can you help me?", "kan iou hèlp mi", "Pouvez-vous m'aider ?"],
+    ["Where is the toilet?", "ouèr iz ze TOÏ-let", "Où sont les toilettes ?"]
+  ]},
+  {id:"transport", name:"Transport", items:[
+    ["How do I get to ...?", "hao dou aï guèt tou", "Comment aller à ... ?"],
+    ["Where is the nearest Tube station?", "ouèr iz ze NI-rest tioub STÉ-chen", "Où est la station de métro la plus proche ?"],
+    ["A single to ..., please", "eu SIN-gl tou ..., pliz", "Un aller simple pour ..., s'il vous plaît"],
+    ["Which platform?", "ouitch PLAT-form", "Quel quai ?"],
+    ["Does this train go to ...?", "daz zis tréïn gô tou", "Ce train va-t-il à ... ?"],
+    ["Where do I change?", "ouèr dou aï TCHÉÏNDJ", "Où dois-je changer ?"],
+    ["Which bus goes to ...?", "ouitch beuss gôz tou", "Quel bus va à ... ?"],
+    ["Can you tell me when to get off?", "kan iou tèl mi ouèn tou guèt OF", "Pouvez-vous me dire quand descendre ?"],
+    ["Is it far?", "iz it FAR", "C'est loin ?"],
+    ["I'm lost", "aïm lost", "Je suis perdu"]
+  ]},
+  {id:"resto", name:"Café et resto", items:[
+    ["A table for two, please", "eu TÉÏ-bl fo tou, pliz", "Une table pour deux, s'il vous plaît"],
+    ["The menu, please", "ze MÈ-niou, pliz", "La carte, s'il vous plaît"],
+    ["I'd like a coffee with milk", "aïd laïk eu KO-fi ouiz milk", "Je voudrais un café avec du lait"],
+    ["Water, please", "OUO-teur, pliz", "De l'eau, s'il vous plaît"],
+    ["I'm allergic to ...", "aïm a-LEUR-djik tou", "Je suis allergique à ..."],
+    ["Is it spicy?", "iz it SPAÏ-si", "C'est épicé ?"],
+    ["To take away, please", "tou téïk a-OUÉÏ, pliz", "À emporter, s'il vous plaît"],
+    ["The bill, please", "ze bil, pliz", "L'addition, s'il vous plaît"]
+  ]},
+  {id:"hotel", name:"Hôtel", items:[
+    ["I have a reservation", "aï hav eu rè-zeur-VÉÏ-chen", "J'ai une réservation"],
+    ["My name is ...", "maï néïm iz", "Je m'appelle ..."],
+    ["What time is breakfast?", "ouot taïm iz BREK-fast", "À quelle heure est le petit-déjeuner ?"],
+    ["What time is check-out?", "ouot taïm iz TCHEK-aout", "À quelle heure faut-il libérer la chambre ?"],
+    ["Can I have the Wi-Fi password?", "kan aï hav ze OUAÏ-faï PASS-oueurd", "Puis-je avoir le mot de passe du Wi-Fi ?"],
+    ["Can I leave my luggage here?", "kan aï liv maï LEU-guidj hir", "Puis-je laisser mes bagages ici ?"],
+    ["The room is too cold", "ze roum iz tou kôld", "La chambre est trop froide"],
+    ["Can you call a taxi?", "kan iou kol eu TAK-si", "Pouvez-vous appeler un taxi ?"]
+  ]},
+  {id:"achats", name:"Achats", items:[
+    ["How much is it?", "hao MEUTCH iz it", "Combien ça coûte ?"],
+    ["Can I pay by card?", "kan aï péï baï kard", "Puis-je payer par carte ?"],
+    ["Can I tap my phone?", "kan aï tap maï fôn", "Puis-je payer sans contact avec mon téléphone ?"],
+    ["Just looking, thanks", "djeust LOU-kigne, sanks", "Je regarde seulement, merci"],
+    ["I'll take it", "aïl téïk it", "Je le prends"],
+    ["Do you have this in a bigger size?", "dou iou hav zis in eu BI-gueur saïz", "Avez-vous ça en plus grand ?"],
+    ["Where can I find ...?", "ouèr kan aï faïnd", "Où puis-je trouver ... ?"],
+    ["Receipt, please", "ri-SIT, pliz", "Le ticket, s'il vous plaît"]
+  ]},
+  {id:"urgences", name:"Urgences", note:"Numéro d'urgence au Royaume-Uni : 999 (le 112 fonctionne aussi).", items:[
+    ["Help!", "hèlp", "Au secours !"],
+    ["I need a doctor", "aï nid eu DOK-teur", "J'ai besoin d'un médecin"],
+    ["Call an ambulance", "kol an AM-biou-lanss", "Appelez une ambulance"],
+    ["Call the police", "kol ze po-LISS", "Appelez la police"],
+    ["My bag was stolen", "maï bag ouoz STÔ-len", "On m'a volé mon sac"],
+    ["I lost my passport", "aï lost maï PASS-port", "J'ai perdu mon passeport"],
+    ["I don't feel well", "aï dônt fil ouèl", "Je ne me sens pas bien"]
+  ]},
+  {id:"chiffres", name:"Chiffres et livres", note:"Un prix se dit : « three pounds fifty » = 3,50 £. Attention : fif-TIN (15) a la syllabe forte à la fin, FIF-ti (50) au début. Même chose pour 13 et 30.", items:[
+    ["One, two, three", "ouane, tou, sri", "1, 2, 3"],
+    ["Four, five, six", "fo, faïv, siks", "4, 5, 6"],
+    ["Seven, eight, nine, ten", "SÈ-ven, éït, naïn, tèn", "7, 8, 9, 10"],
+    ["Fifteen", "fif-TIN", "15"],
+    ["Fifty", "FIF-ti", "50"],
+    ["Twenty", "TOUEN-ti", "20"],
+    ["A hundred", "eu HEUN-dred", "100"],
+    ["Three pounds fifty", "sri paoundz FIF-ti", "3,50 £"],
+    ["Two pounds", "tou paoundz", "2 £"],
+    ["Fifty pence", "FIF-ti pèns", "0,50 £"]
+  ]}
+];
+
+var HEARD = [
+  ["Mind the gap", "Attention à l'espace entre le quai et le train"],
+  ["Stand clear of the doors", "Écartez-vous des portes"],
+  ["You alright?", "Ça va ? (simple salutation, on répond « Yes, thanks »)"],
+  ["Cheers", "Merci (ou salut, santé)"],
+  ["Ta", "Merci (familier)"],
+  ["Sorry?", "Pardon ? (la personne n'a pas compris)"],
+  ["Card or cash?", "Carte ou espèces ?"],
+  ["Contactless?", "Sans contact ?"],
+  ["Eat in or take away?", "Sur place ou à emporter ?"],
+  ["Anything else?", "Autre chose ?"],
+  ["Can I help you?", "Je peux vous aider ?"],
+  ["Take a seat", "Asseyez-vous"],
+  ["Just a moment", "Un instant"],
+  ["It's a quid", "Ça fait une livre (quid = livre sterling)"]
+];
+
+var PINNED = ["Excuse me","I don't understand","Slowly, please","Can you write it down?","Where is the toilet?","How much is it?","The bill, please","Help!"];
+
+var TIPS = [
+  {t:"Le « th »", d:"Mets la langue entre les dents et souffle. Si c'est trop dur au début, dis « s » pour think et « z » pour the : on te comprendra.", ex:["think","thank you","the","this"]},
+  {t:"Le « h »", d:"On le prononce vraiment, avec un petit souffle. Hotel ne se dit pas « ôtel ».", ex:["hotel","help","how much"]},
+  {t:"Le « r »", d:"Plus léger qu'en français. À Londres, le r à la fin d'un mot s'entend à peine : water sonne presque « ouota ».", ex:["water","far","where"]},
+  {t:"La syllabe forte", d:"Dans un mot long, une syllabe est dite plus fort. Dans les prononciations de cette page, elle est en MAJUSCULES : ho-TEL, a-LEUR-djik.", ex:["hotel","allergic","fifteen","fifty"]},
+  {t:"Le « w »", d:"Il se dit comme un « ou » très rapide, lèvres arrondies : what, where, water.", ex:["what","where","water"]}
+];
+
+var SCEN = [
+  {id:"cafe", n:"Au café", d:"Le voyageur commande un café et un sandwich dans un café de Londres."},
+  {id:"metro", n:"Dans le métro", d:"Le voyageur demande son chemin et un billet à la station de métro (Tube)."},
+  {id:"hotel", n:"À l'hôtel", d:"Le voyageur arrive à l'hôtel et fait son check-in à la réception."},
+  {id:"shop", n:"Au magasin", d:"Le voyageur veut acheter un cadeau et demande le prix."}
+];
+
+/* ---------- Outils ---------- */
+function $(s){ return document.querySelector(s); }
+function el(tag, cls, text){
+  var e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(text != null) e.textContent = text;
+  return e;
+}
+function svg(d, s){
+  s = s || 22;
+  return '<svg viewBox="0 0 24 24" width="'+s+'" height="'+s+'" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>';
+}
+var ICON = {
+  speaker: svg('<path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 010 7"/>'),
+  mic: svg('<path d="M12 3a3 3 0 013 3v6a3 3 0 01-6 0V6a3 3 0 013-3z"/><path d="M6 11a6 6 0 0012 0M12 17v4"/>'),
+  expand: svg('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'),
+  check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  copy: svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 012-2h9"/>')
+};
+function iconBtn(kind, label, fn){
+  var b = el("button", "icon");
+  b.type = "button";
+  b.setAttribute("aria-label", label);
+  b.innerHTML = ICON[kind];
+  if(fn) b.addEventListener("click", fn);
+  return b;
+}
+function btnText(kind, label, cls, fn){
+  var b = el("button", cls);
+  b.type = "button";
+  b.innerHTML = ICON[kind];
+  b.appendChild(el("span", null, label));
+  if(fn) b.addEventListener("click", fn);
+  return b;
+}
+function clean(t){ return String(t).replace(/\.\.\./g, " ").replace(/\s+/g, " ").trim(); }
+
+var toastT;
+function toast(msg){
+  var t = $("#toast");
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toastT);
+  toastT = setTimeout(function(){ t.hidden = true; }, 3200);
+}
+
+/* ---------- Voix (lecture en anglais britannique) ---------- */
+var synth = ("speechSynthesis" in window) ? window.speechSynthesis : null;
+var voices = [];
+function loadVoices(){ try{ voices = synth.getVoices(); }catch(e){} }
+if(synth){
+  loadVoices();
+  try{ synth.addEventListener("voiceschanged", loadVoices); }catch(e){}
+}
+function speak(text, slow){
+  if(!synth){ toast("La lecture vocale n'est pas disponible sur cet appareil."); return; }
+  try{
+    synth.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-GB";
+    var v = null, i;
+    for(i = 0; i < voices.length; i++){ if(/^en[-_]GB$/i.test(voices[i].lang)){ v = voices[i]; break; } }
+    if(!v){ for(i = 0; i < voices.length; i++){ if(/^en/i.test(voices[i].lang)){ v = voices[i]; break; } } }
+    if(v) u.voice = v;
+    u.rate = slow ? 0.7 : 0.95;
+    synth.speak(u);
+  }catch(e){ toast("La lecture vocale a échoué."); }
+}
+
+/* ---------- Écran « à montrer » ---------- */
+var showCur = "", wake = null;
+function showBig(text, phon){
+  showCur = clean(text);
+  $("#showText").textContent = text;
+  $("#showPhon").textContent = phon || "";
+  $("#show").hidden = false;
+  try{
+    if(navigator.wakeLock){ navigator.wakeLock.request("screen").then(function(l){ wake = l; }).catch(function(){}); }
+  }catch(e){}
+}
+function closeShow(){
+  $("#show").hidden = true;
+  try{ if(wake){ wake.release(); wake = null; } }catch(e){}
+}
+$("#showClose").addEventListener("click", closeShow);
+$("#showSay").addEventListener("click", function(){ speak(showCur); });
+
+/* ---------- Micro direct (peut être bloqué dans cette fenêtre) ---------- */
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+var MIC_HELP = "Le micro direct ne marche pas dans cette fenêtre. Touche le micro de ton clavier pour dicter, ou écris.";
+var rec = null;
+function stopListen(){ if(rec){ try{ rec.stop(); }catch(e){} } }
+function listen(lang, ta, btn, statusEl, onDone){
+  if(rec){ stopListen(); return; }
+  if(!SR){ statusEl.textContent = MIC_HELP; ta.focus(); return; }
+  var r, got = false;
+  try{ r = new SR(); }catch(e){ statusEl.textContent = MIC_HELP; ta.focus(); return; }
+  r.lang = lang; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
+  r.onstart = function(){
+    btn.classList.add("live"); btn.setAttribute("aria-pressed", "true");
+    statusEl.textContent = "Je t'écoute. Parle maintenant.";
+  };
+  r.onresult = function(ev){
+    var t = "";
+    for(var i = 0; i < ev.results.length; i++){ t += ev.results[i][0].transcript; }
+    ta.value = t.trim(); got = true;
+  };
+  r.onerror = function(ev){
+    if(ev.error === "not-allowed" || ev.error === "service-not-allowed"){ statusEl.textContent = MIC_HELP; }
+    else if(ev.error === "no-speech"){ statusEl.textContent = "Je n'ai rien entendu. Réessaie."; }
+    else if(ev.error !== "aborted"){ statusEl.textContent = "Le micro a eu un souci. Utilise le micro du clavier."; }
+  };
+  r.onend = function(){
+    btn.classList.remove("live"); btn.setAttribute("aria-pressed", "false");
+    if(rec === r) rec = null;
+    if(got){ statusEl.textContent = ""; if(onDone) onDone(); }
+  };
+  rec = r;
+  try{ r.start(); }catch(e){ rec = null; statusEl.textContent = MIC_HELP; ta.focus(); }
+}
+
+/* ---------- IA (capacité sample) ---------- */
+var sample = null;
+(async function(){
+  try{ sample = (window.claude && window.claude.use) ? await window.claude.use("sample") : null; }catch(e){ sample = null; }
+  if(!sample){ $("#noai").hidden = false; }
+})();
+var NO_AI = "L'IA n'est pas disponible ici. Utilise les phrases prêtes.";
+var ERR = {
+  not_granted: "Pour traduire, autorise Claude sur cette page quand la fenêtre s'affiche, puis réessaie.",
+  rate_limited: "Trop de demandes d'un coup. Attends un peu puis réessaie.",
+  session_expired: "Reconnecte-toi à Claude puis réessaie.",
+  sampling_disabled: "Claude n'est pas disponible sur ce compte.",
+  refused: "Claude ne peut pas traduire cette phrase. Reformule-la.",
+  empty_completion: "Pas de réponse. Reformule plus simplement.",
+  invalid_json: "Réponse illisible. Appuie encore sur le bouton.",
+  upstream_error: "Connexion interrompue. Vérifie ton réseau et réessaie."
+};
+function errMsg(e){ return (e && ERR[e.code]) || "Quelque chose a échoué. Réessaie."; }
+
+function promptHear(t){
+  return "Tu aides un voyageur francophone, débutant total en anglais, actuellement à Londres. Quelqu'un lui parle en anglais. Le texte ci-dessous vient d'une dictée vocale : il peut contenir des erreurs de reconnaissance (accent britannique, bruit).\n\nTexte entendu : " + JSON.stringify(t) +
+  "\n\nRéponds uniquement par un objet JSON de cette forme :\n" +
+  "{\"fr\": \"traduction naturelle en français ; si le texte semble déformé, donne le sens le plus probable et ajoute (à confirmer)\", \"reponses\": [{\"en\": \"réponse anglaise courte, simple et polie\", \"phon\": \"prononciation écrite avec l'orthographe française, syllabes séparées par des tirets, syllabe accentuée en MAJUSCULES\", \"fr\": \"sens en français\"}]}\n" +
+  "Donne 3 réponses adaptées à la situation. Si c'est une question fermée, propose oui, non, et demander de répéter lentement. Aucun texte hors du JSON.";
+}
+function promptSay(t){
+  return "Un voyageur francophone, débutant total en anglais, est à Londres et veut dire ceci : " + JSON.stringify(t) +
+  "\n\nRéponds uniquement par un objet JSON de cette forme :\n" +
+  "{\"en\": \"phrase en anglais britannique naturel, courte, simple et polie\", \"phon\": \"prononciation écrite avec l'orthographe française, syllabes séparées par des tirets, syllabe accentuée en MAJUSCULES\", \"fr\": \"retraduction en français pour qu'il vérifie le sens\", \"simple\": \"variante encore plus courte en anglais, ou chaîne vide\", \"simple_phon\": \"prononciation de la variante, ou chaîne vide\"}\n" +
+  "Aucun texte hors du JSON.";
+}
+function rulesTutor(sc){
+  return "Tu es un partenaire de jeu de rôle pour un francophone débutant total en anglais, à Londres. Scène : " + sc.d + " Tu joues l'interlocuteur britannique. Parle en anglais TRÈS simple (phrases de 3 à 8 mots), poli et naturel. À chaque tour, réponds UNIQUEMENT par un objet JSON :\n" +
+  "{\"en\": \"ta réplique en anglais\", \"fr\": \"sa traduction en français\", \"correction\": \"si la dernière réponse du voyageur contient une erreur, une correction brève en français avec la bonne version en anglais, sinon chaîne vide\", \"essaie\": \"une proposition de réponse en anglais très simple pour le voyageur\", \"phon\": \"prononciation de essaie, écrite avec l'orthographe française, syllabes séparées par des tirets, syllabe forte en MAJUSCULES\"}\n" +
+  "Le voyageur peut écrire en français s'il est bloqué : aide-le alors à le dire en anglais dans correction. Termine la scène naturellement après 6 à 8 échanges.";
+}
+
+/* ---------- Ligne de phrase réutilisable ---------- */
+function phraseRow(p, onKnown){
+  var row = el("div", "ph");
+  var tx = el("div", "tx");
+  tx.appendChild(el("div", "en", p[0]));
+  if(p[1]) tx.appendChild(el("div", "phon sm", p[1]));
+  if(p[2]) tx.appendChild(el("div", "fr", p[2]));
+  row.appendChild(tx);
+  var acts = el("div", "acts");
+  acts.appendChild(iconBtn("speaker", "Écouter : " + p[0], function(){ speak(clean(p[0])); }));
+  acts.appendChild(iconBtn("expand", "Montrer en grand", function(){ showBig(p[0], p[1]); }));
+  if(onKnown){
+    var k = iconBtn("check", "Marquer comme sue : " + p[0]);
+    k.setAttribute("aria-pressed", String(known.has(p[0])));
+    k.addEventListener("click", function(){
+      if(known.has(p[0])) known.delete(p[0]); else known.add(p[0]);
+      saveKnown();
+      k.setAttribute("aria-pressed", String(known.has(p[0])));
+      onKnown();
+    });
+    acts.appendChild(k);
+  }
+  row.appendChild(acts);
+  return row;
+}
+
+var known = new Set();
+try{ known = new Set(JSON.parse(localStorage.getItem("lx_known") || "[]")); }catch(e){}
+function saveKnown(){ try{ localStorage.setItem("lx_known", JSON.stringify(Array.from(known))); }catch(e){} }
+
+/* ---------- Onglet Comprendre ---------- */
+function renderHear(r, raw){
+  var out = $("#heardOut");
+  out.textContent = "";
+  var c = el("div", "card");
+  c.appendChild(el("div", "kicker", "Il ou elle dit"));
+  c.appendChild(el("div", "big", r.fr));
+  c.appendChild(el("div", "heardraw", "Texte compris : « " + raw + " »"));
+  out.appendChild(c);
+  var reps = Array.isArray(r.reponses) ? r.reponses.filter(function(x){ return x && typeof x.en === "string"; }) : [];
+  if(reps.length){
+    out.appendChild(el("h2", "h2", "Tu peux répondre"));
+    var list = el("div", "list");
+    reps.slice(0, 4).forEach(function(x){ list.appendChild(phraseRow([x.en, x.phon || "", x.fr || ""])); });
+    out.appendChild(list);
+  }
+}
+async function doHear(){
+  var st = $("#heardStatus"), btn = $("#heardGo");
+  var txt = $("#heard").value.trim();
+  if(!txt){ st.textContent = "Dicte ou écris d'abord ce que tu as entendu."; return; }
+  if(!sample){ st.textContent = NO_AI; return; }
+  btn.disabled = true;
+  st.textContent = "Je traduis…";
+  try{
+    var r = await sample.json(promptHear(txt), {modelTier: "quick"});
+    if(!r || typeof r.fr !== "string") throw {code: "invalid_json"};
+    renderHear(r, txt);
+    st.textContent = "";
+  }catch(e){ st.textContent = errMsg(e); }
+  finally{ btn.disabled = false; }
+}
+$("#heardGo").addEventListener("click", doHear);
+$("#heardMic").addEventListener("click", function(){ listen("en-GB", $("#heard"), $("#heardMic"), $("#heardStatus"), doHear); });
+
+/* ---------- Onglet Parler ---------- */
+function renderSay(r){
+  var out = $("#sayOut");
+  out.textContent = "";
+  var c = el("div", "card");
+  c.appendChild(el("div", "kicker", "À dire en anglais"));
+  c.appendChild(el("div", "big en", r.en));
+  if(r.phon) c.appendChild(el("div", "phon", "Se lit : " + r.phon));
+  if(r.fr) c.appendChild(el("div", "fr", "Sens vérifié : " + r.fr));
+  var row = el("div", "row");
+  row.appendChild(btnText("speaker", "Écouter", "btn primary", function(){ speak(clean(r.en)); }));
+  row.appendChild(btnText("speaker", "Lentement", "btn", function(){ speak(clean(r.en), true); }));
+  row.appendChild(btnText("expand", "Montrer", "btn", function(){ showBig(r.en, r.phon); }));
+  row.appendChild(btnText("copy", "Copier", "btn", function(){
+    try{
+      navigator.clipboard.writeText(r.en).then(function(){ toast("Phrase copiée."); }, function(){ toast("Copie impossible ici."); });
+    }catch(e){ toast("Copie impossible ici."); }
+  }));
+  c.appendChild(row);
+  out.appendChild(c);
+  if(typeof r.simple === "string" && r.simple.trim()){
+    out.appendChild(el("h2", "h2", "Version plus simple"));
+    var list = el("div", "list");
+    list.appendChild(phraseRow([r.simple, r.simple_phon || "", ""]));
+    out.appendChild(list);
+  }
+}
+async function doSay(){
+  var st = $("#sayStatus"), btn = $("#sayGo");
+  var txt = $("#say").value.trim();
+  if(!txt){ st.textContent = "Écris ou dicte d'abord ce que tu veux dire."; return; }
+  if(!sample){ st.textContent = NO_AI; return; }
+  btn.disabled = true;
+  st.textContent = "Je traduis…";
+  try{
+    var r = await sample.json(promptSay(txt), {modelTier: "quick"});
+    if(!r || typeof r.en !== "string") throw {code: "invalid_json"};
+    renderSay(r);
+    st.textContent = "";
+  }catch(e){ st.textContent = errMsg(e); }
+  finally{ btn.disabled = false; }
+}
+$("#sayGo").addEventListener("click", doSay);
+$("#sayMic").addEventListener("click", function(){ listen("fr-FR", $("#say"), $("#sayMic"), $("#sayStatus"), doSay); });
+
+function findPhrase(en){
+  for(var i = 0; i < LIB.length; i++){
+    for(var j = 0; j < LIB[i].items.length; j++){
+      if(LIB[i].items[j][0] === en) return LIB[i].items[j];
+    }
+  }
+  return null;
+}
+function renderQuick(){
+  var g = $("#quick");
+  PINNED.forEach(function(en){
+    var p = findPhrase(en);
+    if(!p) return;
+    var b = el("button", "quick");
+    b.type = "button";
+    b.appendChild(el("span", "qfr", p[2].replace(/ \(.*\)$/, "")));
+    b.appendChild(el("span", "qen", p[0]));
+    b.addEventListener("click", function(){ showBig(p[0], p[1]); speak(clean(p[0])); });
+    g.appendChild(b);
+  });
+}
+
+/* ---------- Onglet Apprendre ---------- */
+var learnView = "bases";
+function renderCat(body, cat){
+  if(cat.note){ body.appendChild(el("p", "notice", cat.note)); }
+  var prog = el("p", "status");
+  function upd(){
+    var n = cat.items.filter(function(p){ return known.has(p[0]); }).length;
+    prog.textContent = n + " sur " + cat.items.length + " phrases sues";
+  }
+  upd();
+  body.appendChild(prog);
+  var list = el("div", "list");
+  cat.items.forEach(function(p){ list.appendChild(phraseRow(p, upd)); });
+  body.appendChild(list);
+}
+function renderProno(body){
+  TIPS.forEach(function(t){
+    var c = el("div", "card");
+    c.appendChild(el("h3", "h2", t.t));
+    c.appendChild(el("div", "fr", t.d));
+    var row = el("div", "row");
+    t.ex.forEach(function(w){
+      row.appendChild(btnText("speaker", w, "btn small", function(){ speak(w); }));
+    });
+    c.appendChild(row);
+    body.appendChild(c);
+  });
+}
+function renderLearn(){
+  var chips = $("#learnChips");
+  chips.textContent = "";
+  var views = LIB.map(function(c){ return {id: c.id, n: c.name}; });
+  views.push({id: "prono", n: "Prononciation"});
+  views.push({id: "tuteur", n: "Tuteur IA"});
+  views.forEach(function(v){
+    var b = el("button", "chip", v.n);
+    b.type = "button";
+    b.setAttribute("aria-pressed", String(v.id === learnView));
+    b.addEventListener("click", function(){ learnView = v.id; renderLearn(); });
+    chips.appendChild(b);
+  });
+  var body = $("#learnBody");
+  body.textContent = "";
+  var isTutor = learnView === "tuteur";
+  $("#tutor").hidden = !isTutor;
+  if(isTutor){ updateTutorView(); return; }
+  if(learnView === "prono"){ renderProno(body); return; }
+  var cat = LIB.filter(function(c){ return c.id === learnView; })[0];
+  if(cat) renderCat(body, cat);
+}
+
+/* ---------- Tuteur IA ---------- */
+var tutor = {sc: null, turns: []};
+function updateTutorView(){
+  $("#scenBox").hidden = !!tutor.sc;
+  $("#chatBox").hidden = !tutor.sc;
+}
+function renderScenarios(){
+  var g = $("#scenGrid");
+  SCEN.forEach(function(sc){
+    var b = el("button", "quick");
+    b.type = "button";
+    b.appendChild(el("span", "qfr", sc.n));
+    b.addEventListener("click", function(){ startScene(sc); });
+    g.appendChild(b);
+  });
+}
+function addMe(text){
+  var m = el("div", "msg me");
+  m.appendChild(el("div", null, text));
+  $("#chat").appendChild(m);
+  m.scrollIntoView({block: "nearest"});
+}
+function addPartner(r){
+  var chat = $("#chat");
+  if(typeof r.correction === "string" && r.correction.trim()){
+    var c = el("div", "corr");
+    c.appendChild(el("b", null, "Correction : "));
+    c.appendChild(document.createTextNode(r.correction));
+    chat.appendChild(c);
+  }
+  var m = el("div", "msg");
+  var line = el("div", "ph");
+  var tx = el("div", "tx");
+  tx.appendChild(el("div", "en", r.en));
+  tx.appendChild(el("div", "fr", r.fr || ""));
+  line.appendChild(tx);
+  var acts = el("div", "acts");
+  acts.appendChild(iconBtn("speaker", "Écouter la réplique", function(){ speak(clean(r.en)); }));
+  line.appendChild(acts);
+  line.style.borderTop = "0"; line.style.padding = "0";
+  m.appendChild(line);
+  if(typeof r.essaie === "string" && r.essaie.trim()){
+    var t = el("div", "try");
+    t.appendChild(el("div", "kicker", "Tu peux répondre"));
+    t.appendChild(el("div", "en", r.essaie));
+    if(r.phon) t.appendChild(el("div", "phon sm", r.phon));
+    var row = el("div", "row");
+    row.appendChild(btnText("speaker", "Écouter", "btn small", function(){ speak(clean(r.essaie)); }));
+    row.appendChild(btnText("check", "Utiliser", "btn small", function(){ $("#chatIn").value = r.essaie; $("#chatIn").focus(); }));
+    t.appendChild(row);
+    m.appendChild(t);
+  }
+  chat.appendChild(m);
+  m.scrollIntoView({block: "nearest"});
+}
+async function tutorCall(){
+  var r = await sample.json(tutor.turns, {modelTier: "quick", cache: false});
+  if(!r || typeof r.en !== "string") throw {code: "invalid_json"};
+  tutor.turns.push({role: "assistant", content: JSON.stringify(r)});
+  addPartner(r);
+}
+async function startScene(sc){
+  var st = $("#scenStatus");
+  if(!sample){ st.textContent = NO_AI; return; }
+  st.textContent = "Je prépare la scène…";
+  tutor.turns = [{role: "user", content: rulesTutor(sc) + "\n\nCommence la scène en saluant le voyageur."}];
+  try{
+    $("#chat").textContent = "";
+    $("#scenName").textContent = sc.n;
+    tutor.sc = sc;
+    updateTutorView();
+    await tutorCall();
+    st.textContent = "";
+  }catch(e){
+    tutor.sc = null; tutor.turns = [];
+    updateTutorView();
+    st.textContent = errMsg(e);
+  }
+}
+$("#scenReset").addEventListener("click", function(){
+  tutor.sc = null; tutor.turns = [];
+  $("#chat").textContent = ""; $("#chatStatus").textContent = ""; $("#scenStatus").textContent = "";
+  updateTutorView();
+});
+async function sendChat(){
+  var inp = $("#chatIn"), st = $("#chatStatus"), btn = $("#chatGo");
+  var msg = inp.value.trim();
+  if(!msg || !tutor.sc) return;
+  if(!sample){ st.textContent = NO_AI; return; }
+  btn.disabled = true;
+  st.textContent = "Je réfléchis…";
+  tutor.turns.push({role: "user", content: "Le voyageur répond : " + JSON.stringify(msg)});
+  addMe(msg);
+  inp.value = "";
+  try{
+    await tutorCall();
+    st.textContent = "";
+  }catch(e){
+    tutor.turns.pop();
+    inp.value = msg;
+    st.textContent = errMsg(e);
+  }finally{ btn.disabled = false; }
+}
+$("#chatForm").addEventListener("submit", function(ev){ ev.preventDefault(); sendChat(); });
+$("#chatMic").addEventListener("click", function(){ listen("en-GB", $("#chatIn"), $("#chatMic"), $("#chatStatus"), null); });
+
+/* ---------- Liste « ce que tu vas entendre » ---------- */
+function renderHeardList(){
+  var list = $("#heardList");
+  HEARD.forEach(function(h){
+    var row = el("div", "ph");
+    var tx = el("div", "tx");
+    tx.appendChild(el("div", "en", h[0]));
+    tx.appendChild(el("div", "fr", h[1]));
+    row.appendChild(tx);
+    var acts = el("div", "acts");
+    acts.appendChild(iconBtn("speaker", "Écouter : " + h[0], function(){ speak(clean(h[0])); }));
+    row.appendChild(acts);
+    list.appendChild(row);
+  });
+}
+
+
+/* ---------- Sous-titres en direct (EN parlé → FR écrit) ---------- */
+var live = {on:false, mode:null, sr:null, fatal:false, buf:"", bufT:null, queue:[], busy:false, ctx:[], wake:null};
+var dict = null;
+var LIVE_NOMIC = "Le micro ne marche pas ici. Regarde l'aide ci-dessous.";
+function liveStatus(t){ $("#liveStatus").textContent = t || ""; }
+function liveUI(){
+  var b = $("#liveBtn");
+  b.classList.toggle("live", live.on);
+  b.classList.toggle("primary", !live.on);
+  b.setAttribute("aria-pressed", String(live.on));
+  $("#liveBtnTx").textContent = live.on ? "Arrêter" : "Démarrer";
+}
+function setPartial(t){
+  var p = $("#livePartial");
+  t = (t || "").trim();
+  p.textContent = t ? t + " …" : "";
+  p.hidden = !t;
+}
+function keepAwake(on){
+  try{
+    if(on && navigator.wakeLock && !live.wake){ navigator.wakeLock.request("screen").then(function(l){ live.wake = l; }).catch(function(){}); }
+    if(!on && live.wake){ live.wake.release(); live.wake = null; }
+  }catch(e){}
+}
+function liveOff(msg, showHelp){
+  live.on = false;
+  if(live.sr){ try{ live.sr.abort(); }catch(e){} live.sr = null; }
+  flushBuf();
+  setPartial("");
+  liveUI(); keepAwake(false);
+  liveStatus(msg || "Sous-titres arrêtés.");
+  if(showHelp) $("#liveHelp").hidden = false;
+}
+function addFinal(t){
+  t = (t || "").trim();
+  if(!t) return;
+  live.buf = live.buf ? live.buf + " " + t : t;
+  clearTimeout(live.bufT);
+  if(/[.?!]$/.test(live.buf) || live.buf.length > 160) flushBuf();
+  else live.bufT = setTimeout(flushBuf, 1200);
+}
+function flushBuf(){
+  clearTimeout(live.bufT);
+  var t = live.buf.trim();
+  live.buf = "";
+  if(!t) return;
+  var ex = $("#liveExample"); if(ex) ex.remove();
+  var feed = $("#liveFeed");
+  Array.prototype.forEach.call(feed.children, function(c){ c.classList.add("old"); });
+  var box = el("div", "sub wait");
+  var fr = el("div", "sfr", "Traduction…");
+  var en = el("div", "sen", t);
+  box.appendChild(fr); box.appendChild(en);
+  feed.insertBefore(box, feed.firstChild);
+  while(feed.children.length > 40) feed.removeChild(feed.lastChild);
+  live.queue.push({text:t, box:box, fr:fr, en:en});
+  pump();
+}
+function promptLive(t){
+  var ctx = live.ctx.length ? "\nPhrases précédentes (contexte, ne pas traduire) : " + JSON.stringify(live.ctx.join(" ")) : "";
+  return "Traduis en français naturel et simple ce qu'une personne vient de dire en anglais, à Londres. Le texte vient d'une reconnaissance vocale en direct : il peut manquer de ponctuation ou contenir des mots mal reconnus ; donne le sens le plus probable." + ctx +
+    "\nTexte à traduire : " + JSON.stringify(t) +
+    "\nRéponds uniquement par la traduction française, sans guillemets, sans commentaire.";
+}
+async function pump(){
+  if(live.busy || !live.queue.length) return;
+  var items = live.queue.splice(0);
+  var it = items[0];
+  if(items.length > 1){
+    it.text = items.map(function(x){ return x.text; }).join(" ");
+    it.en.textContent = it.text;
+    items.slice(1).forEach(function(x){ x.box.remove(); });
+    var feed = $("#liveFeed");
+    feed.insertBefore(it.box, feed.firstChild);
+    it.box.classList.remove("old");
+  }
+  if(!sample){
+    it.fr.textContent = "Traduction indisponible : l'IA n'est pas autorisée sur cette page.";
+    it.box.classList.remove("wait");
+    return;
+  }
+  live.busy = true;
+  try{
+    var r = await sample(promptLive(it.text), {modelTier: "quick", cache: false, onText: function(e){
+      if(e.text && e.text !== "Thinking...") it.fr.textContent = e.text;
+    }});
+    it.fr.textContent = (r && r.text ? r.text : it.fr.textContent).trim();
+    live.ctx.push(it.text); if(live.ctx.length > 3) live.ctx.shift();
+  }catch(e){
+    it.fr.textContent = errMsg(e);
+    if(e && e.code === "rate_limited"){ await new Promise(function(res){ setTimeout(res, 3000); }); }
+  }finally{
+    it.box.classList.remove("wait");
+    live.busy = false;
+    pump();
+  }
+}
+function startWebSR(){
+  if(!SR){ liveOff(LIVE_NOMIC, true); return; }
+  var r;
+  try{ r = new SR(); }catch(e){ liveOff(LIVE_NOMIC, true); return; }
+  r.lang = "en-GB"; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+  r.onstart = function(){ liveStatus("J'écoute. Les phrases s'affichent en français."); };
+  r.onresult = function(ev){
+    var interim = "";
+    for(var i = ev.resultIndex; i < ev.results.length; i++){
+      var res = ev.results[i];
+      if(res.isFinal) addFinal(res[0].transcript);
+      else interim += res[0].transcript;
+    }
+    setPartial(interim);
+  };
+  r.onerror = function(ev){
+    if(ev.error === "not-allowed" || ev.error === "service-not-allowed" || ev.error === "audio-capture"){
+      live.fatal = true; liveOff(LIVE_NOMIC, true);
+    }
+  };
+  r.onend = function(){
+    if(live.on && live.mode === "web" && !live.fatal && live.sr === r){
+      setTimeout(function(){ if(live.on && live.sr === r){ try{ r.start(); }catch(e){} } }, 250);
+    }
+  };
+  live.sr = r;
+  try{ r.start(); }catch(e){ liveOff(LIVE_NOMIC, true); }
+}
+var DICT_END = {
+  viewer_stopped: "Sous-titres arrêtés.",
+  hidden: "Arrêté car la page a été quittée. Appuie sur Démarrer pour reprendre.",
+  time_limit: "Arrêt automatique après 60 minutes. Appuie sur Démarrer pour continuer.",
+  not_granted: "Le micro est refusé pour cette page.",
+  rate_limited: "Trop de demandes. Réessaie dans un instant.",
+  upstream_error: "Le micro ou la reconnaissance a eu un souci. Réessaie."
+};
+(async function(){
+  try{ dict = (window.claude && window.claude.use) ? await window.claude.use("dictation") : null; }catch(e){ dict = null; }
+  if(!dict) return;
+  dict.onPartial(function(e){ if(live.mode === "dict") setPartial(e.text); });
+  dict.onFinal(function(e){ if(live.mode === "dict") addFinal(e.text); });
+  dict.onState(function(e){
+    if(live.mode !== "dict") return;
+    if(e.state === "listening") liveStatus("J'écoute. Les phrases s'affichent en français.");
+    else if(e.state === "starting") liveStatus("Ouverture du micro…");
+    else if(e.state === "idle" && live.on){
+      var r = e.reason;
+      liveOff(DICT_END[r] || (r === "stopped" ? "Sous-titres arrêtés." : DICT_END.upstream_error), r === "not_granted");
+    }
+  });
+})();
+$("#liveBtn").addEventListener("click", function(){
+  if(live.on){
+    if(live.mode === "dict" && dict){ live.on = false; liveUI(); keepAwake(false); liveStatus("Arrêt…"); dict.stop().catch(function(){}).then(function(){ flushBuf(); setPartial(""); liveStatus("Sous-titres arrêtés."); }); }
+    else liveOff("Sous-titres arrêtés.");
+    return;
+  }
+  stopListen();
+  live.on = true; live.fatal = false;
+  $("#liveHelp").hidden = true;
+  liveUI(); keepAwake(true);
+  liveStatus("Ouverture du micro…");
+  if(dict){
+    live.mode = "dict";
+    dict.start({language: "en"}).catch(function(err){
+      var c = err && err.code;
+      if(c === "unavailable"){ live.mode = "web"; startWebSR(); }
+      else if(c === "not_granted"){ liveOff("Le micro est refusé pour cette page.", true); }
+      else if(c === "dismissed"){ liveOff("Appuie à nouveau sur Démarrer et autorise le micro."); }
+      else if(c !== "stopped"){ liveOff(DICT_END[c] || DICT_END.upstream_error); }
+    });
+  }else{
+    live.mode = "web";
+    startWebSR();
+  }
+});
+$("#liveClear").addEventListener("click", function(){
+  $("#liveFeed").textContent = "";
+  live.ctx = [];
+  setPartial("");
+});
+
+/* ---------- Onglets ---------- */
+var TABS = ["live", "hear", "say", "learn"];
+function setTab(id){
+  stopListen();
+  TABS.forEach(function(t){
+    $("#p-" + t).hidden = (t !== id);
+    $("#t-" + t).setAttribute("aria-selected", String(t === id));
+  });
+  $("#main").scrollTop = 0;
+}
+TABS.forEach(function(t){ $("#t-" + t).addEventListener("click", function(){ setTab(t); }); });
+
+/* ---------- Démarrage ---------- */
+["#heardMic", "#sayMic", "#chatMic"].forEach(function(s){
+  var b = $(s);
+  b.innerHTML = ICON.mic;
+  b.appendChild(el("span", null, "Micro"));
+});
+renderHeardList();
+renderQuick();
+renderScenarios();
+renderLearn();
+setTab("live");
+})();
+</script>
