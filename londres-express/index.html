@@ -157,6 +157,9 @@ textarea{
 .sub.old .sfr{font-size:19px;font-weight:400}
 .sub.wait .sfr{color:var(--muted)}
 .sub.ex{border-style:dashed}
+.sub.me{background:var(--soft);border-color:var(--accent)}
+.sub.me .sfr{color:var(--accent)}
+#replyBtn{width:100%;min-height:60px;font-size:18px}
 .sub .tag{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 
 .toast{
@@ -178,6 +181,8 @@ textarea{
       <button type="button" id="liveBtn" class="btn primary go" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span id="liveBtnTx">Démarrer</span></button>
       <button type="button" id="liveClear" class="btn">Effacer</button>
     </div>
+    <button type="button" id="replyBtn" class="btn" aria-pressed="false"><span class="dot" aria-hidden="true"></span><span id="replyTx">Je réponds en français</span></button>
+    <p class="tip">Appuie, parle en français, puis appuie sur « Terminé ». Le téléphone dit ta phrase en anglais et l'affiche en grand. Retire tes écouteurs avant, sinon c'est toi qui l'entends.</p>
     <button type="button" id="liveVoice" class="btn" aria-pressed="false"><span id="liveVoiceTx">🎧 Entendre en français : non</span></button>
     <p class="tip">Avec tes écouteurs, active « Entendre en français » : chaque phrase traduite est lue à voix haute. Sans écouteurs, laisse-le désactivé, sinon le micro capte la voix du téléphone.</p>
     <p class="status" id="liveStatus" role="status" aria-live="polite"></p>
@@ -1000,9 +1005,14 @@ var DICT_END = {
 (async function(){
   try{ dict = (window.claude && window.claude.use) ? await window.claude.use("dictation") : null; }catch(e){ dict = null; }
   if(!dict) return;
-  dict.onPartial(function(e){ if(live.mode === "dict") setPartial(e.text); });
-  dict.onFinal(function(e){ if(live.mode === "dict") addFinal(e.text); });
+  dict.onPartial(function(e){ if(talk.mode === "dict" && talk.seen){ talkPartial(e.text); return; } if(live.mode === "dict") setPartial(e.text); });
+  dict.onFinal(function(e){ if(talk.mode === "dict" && talk.seen){ talk.text += " " + e.text; return; } if(live.mode === "dict") addFinal(e.text); });
   dict.onState(function(e){
+    if(talk.mode === "dict"){
+      if(e.state === "starting" || e.state === "listening"){ talk.seen = true; if(e.state === "listening") liveStatus("Parle en français, puis appuie sur Terminé."); }
+      else if(e.state === "idle" && talk.seen){ finishTalk(e.reason); }
+      return;
+    }
     if(live.mode !== "dict") return;
     if(e.state === "listening") liveStatus("J'écoute. Les phrases s'affichent en français.");
     else if(e.state === "starting") liveStatus("Ouverture du micro…");
@@ -1069,6 +1079,104 @@ $("#liveVoice").addEventListener("click", function(){
   voiceUI();
   try{ synth.cancel(); }catch(e){}
   if(live.voice) speakFr("Lecture en français activée.");
+});
+/* ---------- Je réponds : FR parlé → EN dit à voix haute ---------- */
+var talk = {on:false, mode:null, seen:false, text:"", sr:null, done:false};
+function talkUI(){
+  var b = $("#replyBtn");
+  b.classList.toggle("live", talk.on);
+  b.setAttribute("aria-pressed", String(talk.on));
+  $("#replyTx").textContent = talk.on ? "Terminé : dire en anglais" : "Je réponds en français";
+}
+function talkPartial(t){
+  var p = $("#livePartial");
+  t = (t || "").trim();
+  p.textContent = t ? "Toi : " + t + " …" : "";
+  p.hidden = !t;
+}
+async function finishTalk(reason){
+  if(talk.done) return;
+  talk.done = true;
+  var mode = talk.mode;
+  talk.on = false; talk.mode = null; talk.sr = null;
+  talkUI(); talkPartial("");
+  var txt = talk.text.trim();
+  talk.text = "";
+  if(!txt){
+    liveStatus(reason === "not_granted" ? "Le micro est refusé pour cette page." : "Je n'ai rien entendu. Réessaie.");
+    if(reason === "not_granted") $("#liveHelp").hidden = false;
+    return;
+  }
+  if(!sample){ liveStatus(NO_AI); return; }
+  liveStatus("Je traduis en anglais…");
+  var ex = $("#liveExample"); if(ex) ex.remove();
+  var feed = $("#liveFeed");
+  Array.prototype.forEach.call(feed.children, function(c){ c.classList.add("old"); });
+  var box = el("div", "sub me wait");
+  box.appendChild(el("span", "tag", "Toi"));
+  var en = el("div", "sfr", "Traduction…");
+  box.appendChild(en);
+  box.appendChild(el("div", "sen", txt));
+  feed.insertBefore(box, feed.firstChild);
+  try{
+    var r = await sample.json(promptSay(txt), {modelTier: "quick", cache: false});
+    if(!r || typeof r.en !== "string") throw {code: "invalid_json"};
+    en.textContent = r.en;
+    try{ synth && synth.cancel(); }catch(e){}
+    showBig(r.en, r.phon || "");
+    speak(clean(r.en));
+    liveStatus("Pour réécouter la personne, appuie sur Démarrer.");
+  }catch(e){ en.textContent = errMsg(e); liveStatus(""); }
+  finally{ box.classList.remove("wait"); }
+}
+function startTalkWeb(){
+  if(!SR){ talk.on = false; talkUI(); liveStatus(LIVE_NOMIC); $("#liveHelp").hidden = false; return; }
+  var r;
+  try{ r = new SR(); }catch(e){ talk.on = false; talkUI(); liveStatus(LIVE_NOMIC); $("#liveHelp").hidden = false; return; }
+  talk.mode = "web";
+  r.lang = "fr-FR"; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+  r.onstart = function(){ liveStatus("Parle en français, puis appuie sur Terminé."); };
+  r.onresult = function(ev){
+    var interim = "";
+    for(var i = ev.resultIndex; i < ev.results.length; i++){
+      if(ev.results[i].isFinal) talk.text += " " + ev.results[i][0].transcript;
+      else interim += ev.results[i][0].transcript;
+    }
+    talkPartial(interim);
+  };
+  r.onerror = function(ev){ if(ev.error === "not-allowed" || ev.error === "service-not-allowed"){ $("#liveHelp").hidden = false; } };
+  r.onend = function(){ if(talk.sr === r) finishTalk(); };
+  talk.sr = r;
+  try{ r.start(); }catch(e){ talk.sr = null; talk.on = false; talkUI(); liveStatus(LIVE_NOMIC); }
+}
+$("#replyBtn").addEventListener("click", function(){
+  if(talk.on){
+    if(talk.mode === "dict" && dict){ liveStatus("Je traduis en anglais…"); dict.stop().catch(function(){}); }
+    else if(talk.sr){ try{ talk.sr.stop(); }catch(e){ finishTalk(); } }
+    else finishTalk();
+    return;
+  }
+  try{ synth && synth.cancel(); }catch(e){}
+  stopListen();
+  var wasDict = live.on && live.mode === "dict";
+  if(live.on){
+    if(wasDict){ live.on = false; liveUI(); keepAwake(false); live.mode = null; if(dict) dict.stop().catch(function(){}).then(function(){ flushBuf(); }); }
+    else liveOff("");
+  }
+  talk.on = true; talk.done = false; talk.seen = false; talk.text = "";
+  $("#liveHelp").hidden = true;
+  talkUI();
+  liveStatus("Ouverture du micro…");
+  if(dict){
+    talk.mode = "dict";
+    dict.start({language: "fr"}).catch(function(err){
+      var c = err && err.code;
+      if(c === "unavailable"){ talk.mode = null; startTalkWeb(); }
+      else if(c !== "stopped"){ talk.seen = true; finishTalk(c); }
+    });
+  }else{
+    startTalkWeb();
+  }
 });
 $("#liveClear").addEventListener("click", function(){
   try{ synth && synth.cancel(); }catch(e){}
